@@ -45,7 +45,7 @@ char *input = inouttemp;
 // get next token
 inouttemp = strtok(NULL, " ");
 char *output = inouttemp;
- 
+ output = strtok(output, "\n");
 
 // run decrypt using input and output params
 decrypt(input,output);

@@ -21,6 +21,7 @@ if (argc != 2){
 // start file pointer
 FILE *input;
 
+char str[141];
 // open input and output files
 input = fopen(argv[1], "r");
 
@@ -47,7 +48,7 @@ char *output = inouttemp;
  
 
 // run decrypt using input and output params
-decrypt();
+decrypt(input,output);
 
 }
 

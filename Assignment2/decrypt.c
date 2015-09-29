@@ -7,7 +7,29 @@
 ull mod_exps(ull base);
 char base41convert (ull num, char table[]);
 
-void decrypt(char* str, char table[], FILE * output) {
+void decrypt(char* intputdir, char* outputdir) {
+
+printf("Running decryption function...\n");
+
+FILE *input;
+FILE *output;
+
+char str[141];
+
+// open intput and output files
+input = fopen(intputdir, "r");
+output = fopen(outputdir, "w");
+
+//if input returns 0 the input file is missing
+if (input == 0){
+    printf("Input file is missing.");
+    exit(-2);
+}
+
+char table[] = " abcdefghijklmnopqrstuvwxyz#.,\'!\?()-:$/&\\";
+
+
+while (fgets(str, 140, input)){
 
 // remove the \n chracter from the string     
 strtok(str, "\n");
@@ -67,6 +89,11 @@ for (int i = 0; i < gcount; i++){
     }
     fprintf(output, decodedstr);
 }
+fprintf(output, "\n");
+}
+fclose(input);
+fclose(output);
+printf("decryption function finished. \n");
 
 } 
 

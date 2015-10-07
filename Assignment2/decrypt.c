@@ -1,5 +1,6 @@
 #include "decrypt.h"
 #include <stdio.h>
+#include <time.h>
 
 #define ull unsigned long long int
 // uncomment Want_Debug to see debug notes
@@ -7,22 +8,24 @@
 ull mod_exps(ull base);
 char base41convert (ull num, char table[]);
 
-void decrypt(char* intputdir, char* outputdir) {
+void decrypt(char* inputdir, char* outputdir) {
 
-printf("Running decryption function...\n");
+//printf("Running decryption function on %s...\n", inputdir);
 
 FILE *input;
 FILE *output;
 
 char str[141];
+time_t ltime;
+time(&ltime);
 
 // open intput and output files
-input = fopen(intputdir, "r");
+input = fopen(inputdir, "r");
 output = fopen(outputdir, "w");
 
 //if input returns 0 the input file is missing
 if (input == 0){
-    printf("Input file is missing.");
+printf("[%s] Child Process ID #%i Error: Input file is missing. Exiting. \n", ctime(&ltime), getpid());
     exit(-2);
 }
 
@@ -93,7 +96,7 @@ fprintf(output, "\n");
 }
 fclose(input);
 fclose(output);
-printf("decryption function finished. \n");
+//printf("decryption function finished on %s.\n", inputdir);
 
 } 
 

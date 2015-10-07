@@ -1,5 +1,5 @@
 CC= gcc
 CFLAGS=-I
 
-lyrebird:  
+lyrebird: 
 	$(CC) -o lyrebird main.c decrypt.c 

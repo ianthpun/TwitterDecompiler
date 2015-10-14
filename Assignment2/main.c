@@ -9,26 +9,23 @@
 
 #define Want_Debug
 
+void ProcessCleanup(int ProcessCount, int ProcessArr[]);
+char * CurrTime(time_t ltime);
 
-/* Use this to optimize later if needed
-#include <unistd.h>
-sysconf(_SC_NPROCESSORS_ONLN); */ 
-
-//successful completion of this program will exit with 0
-
-
-int main (int argc, char *argv[] ) {
-
-// i learned this from : 
 time_t ltime;
-time(&ltime);
-char *inouttemp;
-int ArrSize = 1000;
-
 int* pidstatus;
 
+//successful completion of this program will exit with 0
+int main (int argc, char *argv[] ) {
+
+char *inouttemp;
+
+// I've set array size to 1000 to start, but will increase if its needed since its only holding ints, it wont be too large to begin with.
+int ArrSize = 1000;
+// This dynamic array will hold the pids of all the processes
 int * ProcessArr;
 ProcessArr = (int*) malloc(ArrSize*sizeof(int)); 
+
 int ProcessCount = 0;
 
 //has to be exactly 2 arguments
@@ -55,16 +52,19 @@ if (input == 0){
 while (fgets(str, 2050, input)){   
 int ChildID = fork();
 
+
 // Parent Process
 if (ChildID){
-// increase process count.
+// increase process count and add it to the array.
 ProcessCount++;
 if (ProcessCount <= ArrSize)
 	ProcessArr[ProcessCount-1] = ChildID;
-else {
+else { 
+// if dyn array is too small, we will allocate more room and add to array.
+	printf("Increasing allocated array \n");
 	ProcessArr = (int*) realloc(ProcessArr, (ArrSize*2)*sizeof(int));
 	ArrSize = ArrSize*2;
-}
+	ProcessArr[ProcessCount-1] = ChildID;}
 }
 
 
@@ -78,34 +78,39 @@ char *input = inouttemp;
 // get next token
 inouttemp = strtok(NULL, " ");
 char *output = inouttemp;
- output = strtok(output, "\n");
+output = strtok(output, "\n");
 
-printf("[%s] Child Process ID #%i created to decrypt %s. \n",ctime(&ltime),getpid(),input);
+printf("[%s] Child Process ID #%i created to decrypt %s. \n",CurrTime(ltime),getpid(),input);
 
 // run decrypt using input and output params
 decrypt(input,output);
-printf("[%s] Decryption of %s complete. Process ID #%i Exiting. \n",ctime(&ltime),input, getpid());
+printf("[%s] Decryption of %s complete. Process ID #%i Exiting. \n",CurrTime(ltime),input, getpid());
 exit(0);
 }
 
-// New Process fails to create
 else {
-printf("[%s] Failed to create new process. Exiting.\n", ctime(&ltime));
-exit(-1);
-}
+// New Process fails to create, will do a process cleanup for all children made before error.
+printf("[%s] Failed to create new process. Exiting.\n", CurrTime(ltime));
+ProcessCleanup(ProcessCount, ProcessArr);
+exit(1);}
 
 }
 
-for (int i = 0; i < ProcessCount; i++){
-waitpid(ProcessArr[i], &pidstatus,NULL);
-if (!WIFEXITED(pidstatus) || WIFSIGNALED(pidstatus))
-printf("[%s] Child Process ID # %i  did not terminate successfully. \n",ctime(&ltime),ProcessArr[i]);
-}
-// clean up of I/O files and exit
+// clean up of Processes and I/O files and exit
+ProcessCleanup(ProcessCount, ProcessArr);
 fclose(input);
 free(ProcessArr);
 exit(0);
 }
 
+
+// ProcessClean will take the dyn array ProcessArr and call a waitpid on every child, catching any errors.
+void ProcessCleanup(int ProcessCount, int ProcessArr[]){
+for (int i = 0; i < ProcessCount; i++){
+waitpid(ProcessArr[i], &pidstatus,NULL);
+// find a way to check if exit is wrong
+if (!WIFEXITED(pidstatus) || WIFSIGNALED(pidstatus) || WEXITSTATUS(pidstatus))
+	printf("[%s] Child Process ID #%i did not terminate successfully. \n",CurrTime(ltime),ProcessArr[i]);}
+}
 
 

@@ -1,8 +1,16 @@
+/*Ian Pun
+Student number : 301167944
+itpun@sfu.ca
+CMPT 300 D100
+Instructor: Brian Booth
+TA: Scott Kristjanson
+*/
+
 #include "decrypt.h"
 #include <stdio.h>
 #include <time.h>
 #include <signal.h>
-
+#include "memwatch.h"
 
 
 #define ull unsigned long long int
@@ -20,7 +28,7 @@ void decrypt(char* inputdir, char* outputdir) {
 
 FILE *input;
 FILE *output;
-
+// I used a size of 256 because I believe that the string character will never be bigger than 256 and that characters are small in memory anyways
 char str[256];
 
 // open intput and output files
@@ -28,8 +36,9 @@ input = fopen(inputdir, "r");
 output = fopen(outputdir, "w");
 
 //if input returns 0 the input file is missing
-if (input == 0){
+if (input == NULL){
 printf("[%s] Child Process ID #%i Error: Input file is missing. Exiting. \n", CurrTime(ltime), getpid());
+    free(ProcessArr);
     exit(1);
 }
 

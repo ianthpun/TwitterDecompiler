@@ -1,0 +1,25 @@
+<html>
+<head>
+	<title></title>
+</head>
+<body>
+<h2>
+<style type="text/css">p { margin-bottom: 0.25cm; line-height: 120%; }
+</style>
+</h2>
+
+<p align="center" style="margin-bottom: 0cm; line-height: 100%"><strong>The Lyrebird Report - Ian Pun</strong></p>
+
+<p style="margin-bottom: 0cm; line-height: 100%;">Lyrebird is a program that was first originally able to directly decrypt a text file of encrypted twitter messages. However, due to the program only running as one process, it is actually really slow for large amounts of messages. The employer has asked to speed Lyrebird up so that you can use it to run the large amount of encrypted messages efficiently. Thankfully, the new age of computers has given you multiple cores to work with, allowing you to take advantage of each core. The idea was to re-implement Lyrebird so that it would run the decryption across multiple processes, giving each core a chance to work on the decryption instead of running on one core.</p>
+
+<p align="left" style="margin-bottom: 0cm; line-height: 100%">First, i changed my general Lyrebird main program into a function called Decrypt(). It accept two parameters; the input directory and the output directory. Previously, I had it so that when you run lyrebird you had to give it the input txt file and output directory. However, I am now implementing it so that Lyrebird main will take in one input, a list.txt file, which contains the input and output file locations for all the encrypted messages. Using Fgets(), I grabbed each line (which includes both the input and output directory locations) and used strtok() to tokenize each directory by &ldquo; &ldquo;, then, I fed both strings into my Decrypt(). In order to use multicore processing, I additionally implemented the Decrypt() to be run inside a child process, created through a fork() call.</p>
+
+<p align="left" style="margin-bottom: 0cm; line-height: 100%">Using Fork() within the Fgets() function, Lyrebird is able to create a new Decypt() every new line. Thus, we would have one parent with multiple children. Every time a new child is created, I had it so that the parent would place the processID of the child into the array ProcessArr[]. Because we were not given exactly how many encrypted files there will be, I used a dynamic array ProccessArr[] that will initally hold up to 1000 processes, but will run remalloc and double the size if its any larger. The use of ProcessArr[] is actually evedent when running ProcessCleanup, which is a function I designed that will go through the ProcessArr[] and run the waitpid() function on them. By doing this, it will make sure that all child processes have to be finished before it can move on. ProcessCleanup would be run right after all the child processes have been created, so just before Lyrebird exists. However, if the Parent happened to have failed to create a fork, it should also check all the previous child processes before exiting, which is why I had it run there as well before exiting.</p>
+
+<p align="left" style="margin-bottom: 0cm; line-height: 100%">To make sure that this program worked, I used a few testing methods. I gave it a empty txt file, which should just return nothing. I gave it no arguments, leading to it existing with a message that the number of arguments is wrong. I&#39;ve also given it an invalid input file directory, which lead to it exiting. After that, I stress tested the multiprocessing part of lyrebird with some heavy stresstesting. I used Scotts test plan for twitter messages from t2 to t10, which tests the functionality of small twitter messages all the way up to 1000 tweets at once. I put all those file directories into my list.txt file, including one that lead to a invalid input file (which should cause the child to terminate). This would test if the child would return with a non-zero exit and cause the waitpid() to catch it. I also tested it with a list of 10 and one with 1000, which should create that many amount of processes. In order to test of my remalloc was working correctly, I changed the initial size to something small (5) and ran a list of 20 entries. Remalloc should be run twice because it would double every time, going from 5 -&gt; 10 -&gt; 20. I would also check to make sure that the decryptions were done correctly, running a diff function on the output compared to Scotts answer key.</p>
+
+<p align="left" style="margin-bottom: 0cm; line-height: 100%">Running Lyrebird with a multiprocessing design allows you to easily decrypt a massive amount of messages while making use of our modern multicore computers. Although not perfect, I  believe a more optimized solution to this would be to only create up to the amount of processors are on the current computer using a semaphore to keep track. This would give each processor the most optimal time with each process.</p>
+
+<p align="left" style="margin-bottom: 0cm; line-height: 100%">&nbsp;</p>
+</body>
+</html>

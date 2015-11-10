@@ -15,7 +15,7 @@ TA: Scott Kristjanson
 
 #define ull unsigned long long int
 // uncomment Want_Debug to see debug notes
-//#define Want_Debug 
+//#define Want_Debug 1
 ull mod_exps(ull base);
 char base41convert (ull num, char table[]);
 char * CurrTime(time_t ltime);

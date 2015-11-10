@@ -95,7 +95,8 @@ while (fgets(str, 2050, input)){
 		inouttemp = strtok(NULL, " ");
 		char *output = inouttemp;
 		output = strtok(output, "\n");
-
+        printf("input is %s\n", input);
+        printf("output is %s\n", output);
 		// run decrypt using input and output params
 
 		printf("[%s] Child Process ID #%i created to decrypt %s. \n",CurrTime(ltime),getpid(),input);

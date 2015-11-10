@@ -31,28 +31,29 @@ all the decrypted messages and its designated output directory.
 
 #define Want_Debug
 
-void rrdecrypt(FILE *input, int CoreNumber);
 void ProcessCleanup(int ProcessCount, int ProcessArr[]);
-void fcfsdecrypt(FILE *input, int CoreNumber);
-//char * CurrTime(time_t ltime);
+void pipedecryption(FILE *input, int CoreNumber, int algochoice);
+
 time_t ltime;
 int* pidstatus;
 int CoreNumber;
+const char FCFS[] = "fcfs";
+const char RR[] = "round robin";
 
 int main (int argc, char *argv[]) {
 
-char str[50];
-char *strtemp;
-
+// this will hold the string for the selected algo. I picked 100 so it could hold enough for any bigger strings 
+    //when comparing to what algo its refering to.
+char str[100];
+int algochoice = 0;
 
 //has to be exactly 2 arguments
 if (argc != 2){
 	printf( "You have put too many/few arguments.\n");
 	exit(-1);}
 
-// start file pointer
+// start file pointer and open file
 FILE *input;
-// open input file
 input = fopen(argv[1], "r");
 
 //if input returns 0 the input file is missing
@@ -60,162 +61,52 @@ if (input == 0){
 	printf("Input file is missing.\n");
 	exit(-2);
 }
-//
+
+// grab first line and check what is the selected algo
+fgets(str, 100, input);
+char* algotype = strtok(str, "\n");
+
+if(strcmp(FCFS, algotype)==0){
+// algorithm is FCFS. We will donote that as type 1
+algochoice = 1;
+}
+
+else if(strcmp(RR, algotype)==0){
+// algorithm is Round Robin. We will donote that as type 2
+algochoice = 2;
+}
+
+else{
+printf("Requested algorithm is not supported. Exiting. \n");
+exit(-1);
+}
+
+
 CoreNumber = sysconf(_SC_NPROCESSORS_ONLN);
-
-// get first line to see algorithm choice.
-/*fgets(str, 2050, input);
-
-strtemp = strtok(str, "\n");*/
-
-fcfsdecrypt(input, CoreNumber);
+pipedecryption(input, CoreNumber, algochoice);
 exit(0);
 
 }
 
 
+void pipedecryption(FILE *input, int CoreNumber, int algochoice){
+/* 
 
+Algochoice = 1
+We are using FCFS
+Algochoice = 2
+We are using Round Robin
 
-
-
-
-
-
-
-
-
-
-
-
-void rrdecrypt(FILE *input, int CoreNumber){
- 
-int ProcessCount = 0;
-fd_set rfds;
-fd_set wfds;
-int ProcessTotal = CoreNumber-1;
-int ProcessArr[ProcessTotal];
-FD_ZERO(&rfds);
-FD_ZERO(&wfds);
- 
- 
-int EncryptionDirectoryPipe[ProcessTotal][2];
-int ProcessReadyPipe[ProcessTotal][2];
-int ProcessStatus;
-char directorybuffer[2050];
-int RRcount = 0;
-char* directory[2050];
-int directorysize;
-int ProcessesCreated;
- 
-for(int i = 0; i < ProcessTotal; i++){
- 
-        pipe(EncryptionDirectoryPipe[i]);
-//      pipe(ProcessReadyPipe[i]);
- 
-        int ChildID = fork();
-        if (ChildID){           // parent process
-//      FD_SET(ProcessReadyPipe[i][1],&wfds);
-//      FD_SET(ProcessReadyPipe[i][0],&rfds);
-        FD_SET(EncryptionDirectoryPipe[i][1],&wfds);
-        FD_SET(EncryptionDirectoryPipe[i][0],&rfds);
-        // close the writing end of the pipe, we willl be reading from the child for its status
-//      close(ProcessReadyPipe[i][1]);
-        // close reading end, we will be writing to the child processes
-        close(EncryptionDirectoryPipe[i][0]);
-        ProcessArr[i] = ChildID;
-        printf("child put into ProcessArr: %i\n",ProcessArr[i]);
-        ProcessesCreated++;
-}
- 
- 
-        else if (ChildID == 0){         // child process
-        // close the reading end of the pipe, we will be writing to the parent
- //     close(ProcessReadyPipe[i][0]);
-        // close writing end, we will be reading the directorys in from the parent
-        close(EncryptionDirectoryPipe[i][1]);
-
-        while(1){
-
-        int dirsize;
-        int readstatus = read(EncryptionDirectoryPipe[i][0], &dirsize,sizeof(int));
-        
-        if (readstatus==0){
-        printf("child %i has reach end of read. exiting loop.\n", getpid());
-        break;}
-
-        read(EncryptionDirectoryPipe[i][0], directorybuffer,dirsize);
-        char *inouttemp = strtok(directorybuffer, " ");
-        char *input = inouttemp;
-        // get next token
-        inouttemp = strtok(NULL, " ");
-        char *output = inouttemp;
-        output = strtok(output, "\n");
-
-        // run decrypt using input and output params
-        printf("[%s] Child Process ID #%i will decrypt %s. \n",CurrTime(ltime),getpid(),input);
-        if(decrypt(input,output))
-        printf("[%s] Process ID #%i decrypted %s successfully. \n",CurrTime(ltime),getpid(),input);
-        else
-        printf("Decryption Error. Moving to next decryption.\n");    
-        }
-
-        close(EncryptionDirectoryPipe[i][0]);
-        return;
-        }
-
-        else{
-        // Process failed to create.
-        ProcessCleanup(i, ProcessArr); 
-        fclose(input);
-        return;
-        }
-}
- 
- 
-// children processes are instantiated
-
-int dircount;
-
-while(fgets(directory, 2050, input)){
-if(RRcount == (ProcessTotal))
-        RRcount = 0;
-char* dir = strtok(directory, "\n");
-directorysize = strlen(dir);
-write(EncryptionDirectoryPipe[RRcount][1], &directorysize, sizeof(int));
-write(EncryptionDirectoryPipe[RRcount][1], dir, strlen(dir));
-RRcount++;
-dircount++;
-}
-
-for (int i = 0; i< ProcessTotal; i++){
-close(EncryptionDirectoryPipe[i][1]);
-}
-
-
-/*
-if (dircount < ProcessTotal){
-for (int i = dircount+1; i <= ProcessTotal; i++){
-printf("killing unused processes at id: %i \n", ProcessArr[i-1]);
-kill(ProcessArr[i], SIGKILL);
-}
-}
 */
-
-ProcessCleanup(ProcessesCreated, ProcessArr);
-fclose(input);
-exit(0);
-
-}
-
-
-void fcfsdecrypt(FILE *input, int CoreNumber){
 int ProcessCount = 0;
 fd_set rfds;
 fd_set wfds;
+// we are only using the number of cores - because we restrict one to the parent
 int ProcessTotal = CoreNumber-1;
 int ProcessArr[ProcessTotal];
 FD_ZERO(&rfds);
 FD_ZERO(&wfds);
+// timeval is used for the SELECT function
 struct timeval tv;
 tv.tv_sec = 100;
 tv.tv_usec = 0; 
@@ -223,72 +114,74 @@ tv.tv_usec = 0;
 int EncryptionDirectoryPipe[ProcessTotal][2];
 int ProcessReadyPipe[ProcessTotal][2];
 int ProcessStatus = 1;
-char directorybuffer[2050];
 int RRcount = 0;
 char* directory[2050];
 int directorysize;
-int ProcessesCreated;
+
+
  
 for(int i = 0; i < ProcessTotal; i++){
- 
-        pipe(EncryptionDirectoryPipe[i]);
-        pipe(ProcessReadyPipe[i]);
+        // create the pipes. Include error handling if it fails.
+        if(pipe(EncryptionDirectoryPipe[i])||pipe(ProcessReadyPipe[i]))
+        {
+            printf("[%s] Parent #%i failed to pipe. Exiting.\n",CurrTime(ltime), getpid());
+            exit(-1);
+        }
  
         int ChildID = fork();
         if (ChildID){           // parent process
-//        FD_SET(ProcessReadyPipe[i][1],&wfds);
+        FD_SET(ProcessReadyPipe[i][1],&wfds);
         FD_SET(EncryptionDirectoryPipe[i][1],&wfds);
         FD_SET(ProcessReadyPipe[i][0],&rfds);
         // close the writing end of the pipe, we willl be reading from the child for its status
         close(ProcessReadyPipe[i][1]);
         // close reading end, we will be writing to the child processes
         close(EncryptionDirectoryPipe[i][0]);
+        // add the child into the ProcessArr to keep track of processes created
         ProcessArr[i] = ChildID;
-        printf("child put into ProcessArr: %i\n",ProcessArr[i]);
-        ProcessesCreated++;
 }
  
  
         else if (ChildID == 0){         // child process
-        // close the reading end of the pipe, we will be writing to the parent
+        // close appropriate ends of the pipe for the child process
         close(ProcessReadyPipe[i][0]);
-        // close writing end, we will be reading the directorys in from the parent
         close(EncryptionDirectoryPipe[i][1]);
 
         while(1){
+        // read from the pipe the length of the incoming msg into dirsize. If its null, the pipe is empty, 
+        // so finish the loop with a break.
         int dirsize;
         int readstatus = read(EncryptionDirectoryPipe[i][0], &dirsize,sizeof(int));
         if (readstatus==0){
-        printf("child %i has reach end of read. exiting loop.", getpid());
                 break;}
-        
+        // get the incoming msg using the size dirsize given in the privious msg
+        char directorybuffer[dirsize];
         read(EncryptionDirectoryPipe[i][0], directorybuffer,dirsize);
+        // parse the directory into input and output pointers respectfully
         char *inouttemp = strtok(directorybuffer, " ");
         char *input = inouttemp;
-        // get next token
         inouttemp = strtok(NULL, " ");
         char *output = inouttemp;
         output = strtok(output, "\n");
-
+        // run decryption
         printf("[%s] Child Process ID #%i will decrypt %s. \n",CurrTime(ltime),getpid(),input);
-        if(decrypt(input,output))
+        if(decrypt(input,output) > 0)
         printf("[%s] Process ID #%i decrypted %s successfully. \n",CurrTime(ltime),getpid(),input);
-        else
-        printf("Decryption Error. Moving to next decryption.\n");    
-        
+        if (algochoice == 1){
+        // Case for FCFS: send msg to parent saying its ready.
         printf("child %i Setting status to ready \n", getpid());
-        write(ProcessReadyPipe[i][1],&ProcessStatus,sizeof(ProcessStatus));
+        write(ProcessReadyPipe[i][1],&ProcessStatus,sizeof(ProcessStatus));}
         }
-        
-        // finish reading everything, should send a ready status through
-        
-//        close(ProcessReadyPipe[i][1]);
-        return;
+        // Process is done all jobs. Close its writing pipe.
+        close(ProcessReadyPipe[i][1]);
+        exit(0);
         }
         else{
+        // Parent fails to fork. Clean up previously created children prior to crash
+        printf("[%s] Process ID #%i failed to create a child. \n",CurrTime(ltime), getpid());
         ProcessCleanup(i, ProcessArr); 
         fclose(input);
-        return;
+        exit(-1);
         }
 }
  
@@ -297,10 +190,11 @@ for(int i = 0; i < ProcessTotal; i++){
 
 int dircount;
 
-
 while(fgets(directory, 2050, input)){
+if (algochoice == 1){
+//Selected Algo is FCFS
 
-// put them all into the processes available first.
+// direct all the children with a first set of work first
 if (dircount < ProcessTotal){
 char* dir = strtok(directory, "\n");
 directorysize = strlen(dir);
@@ -308,7 +202,8 @@ write(EncryptionDirectoryPipe[dircount][1], &directorysize, sizeof(int));
 write(EncryptionDirectoryPipe[dircount][1], dir, strlen(dir));
 dircount++;
 }
-// next, wait on select to see when the process is free
+// next, wait on select to see when the process is free using SELECT, then 
+//check to see which process is ready, then send the next job to it.
 else {
 int ret = select(FD_SETSIZE, &rfds, NULL,NULL,&tv);
 if (ret>0){
@@ -324,7 +219,7 @@ for (int i = 0; i<= ProcessTotal;i++){
 
         // reset the FDset
         for (int i= 0; i < ProcessTotal; i++){
-        FD_SET(ProcessReadyPipe[i][0],&rfds);}
+        FD_SET(ProcessReadyPipe[i][0],&rfds);} 
         break;}
         }
 }
@@ -333,10 +228,27 @@ for (int i = 0; i<= ProcessTotal;i++){
 
 }
 
+if (algochoice == 2){
+// Selected Algo is Round Robin
+// send jobs into the pipe according to the round robin rule
+if(RRcount == (ProcessTotal))
+        RRcount = 0;
+char* dir = strtok(directory, "\n");
+directorysize = strlen(dir);
+write(EncryptionDirectoryPipe[RRcount][1], &directorysize, sizeof(int));
+write(EncryptionDirectoryPipe[RRcount][1], dir, strlen(dir));
+RRcount++;
+}
 
+}
+
+// jobs are all given out, close off all your encryptiondirectorypipes and
+//clean the rest up.
 for (int i = 0; i< ProcessTotal; i++){
 close(EncryptionDirectoryPipe[i][1]);}
-ProcessCleanup(ProcessesCreated, ProcessArr);
+
+printf("im done everything. Parent is running Process Cleanup\n");
+ProcessCleanup(ProcessTotal, ProcessArr);
 fclose(input);
 exit(0);
 }
@@ -351,13 +263,6 @@ for (int i = 0; i < ProcessCount; i++){
         if ((!WIFEXITED(pidstatus)) || (WIFSIGNALED(pidstatus)) || (WEXITSTATUS(pidstatus)))
                 printf("[%s] Child Process ID #%i did not terminate successfully. \n",CurrTime(ltime),ProcessArr[i]);}
 }
-
-
-
-
-// reset the FD set so we can run it again
-
-
 
 
 

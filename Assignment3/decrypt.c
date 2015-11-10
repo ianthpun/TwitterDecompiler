@@ -14,7 +14,7 @@ TA: Scott Kristjanson
 
 #define ull unsigned long long int
 // uncomment Want_Debug to see debug notes
-//#define Want_Debug 
+//#define Want_Debug 1
 ull mod_exps(ull base);
 char base41convert (ull num, char table[]);
 char * CurrTime(time_t ltime);
@@ -34,11 +34,12 @@ char str[256];
 input = fopen(inputdir, "r");
 output = fopen(outputdir, "w");
 
-//if input returns 0 the input file is missing
+//if input returns null the input file is missing
 if (input == NULL){
-printf("[%s] Child Process ID #%i Error: Input file is missing. Exiting. \n", CurrTime(ltime), getpid());
-//    free(ProcessArr);
-    return -1;
+printf("[%s] Child Process ID #%i Error: Input file is missing. \n", CurrTime(ltime), getpid());
+fclose(input);
+fclose(output);
+return -1;
 }
 
 char table[] = " abcdefghijklmnopqrstuvwxyz#.,\'!\?()-:$/&\\";
@@ -49,7 +50,7 @@ while (fgets(str, 256, input)){
 // remove the \n chracter from the string     
 strtok(str, "\n");
 
-#if Want_Debug
+#if (Want_Debug==1) 
 printf("the incoming string is: %s\n", str);
 printf("string length is %d \n", strlen(str));
 #endif
@@ -102,6 +103,7 @@ for (int i = 0; i < gcount; i++){
 	decodedstr[j] = base41convert(groups[i], table);
 	groups[i] = groups[i]/41;
     }
+    // this is broken here!!!!!!!!!
     fprintf(output, decodedstr);
 }
 fprintf(output, "\n");

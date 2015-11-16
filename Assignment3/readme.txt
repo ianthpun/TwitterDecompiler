@@ -13,19 +13,21 @@ Lyrebird is a program that will analyse and decrypt any encrypted text messages 
 3) Run Modular Exponentiation using exponent 1921821779 and mod 4294434817
 4) Run the inverse of step 2 to get the decrypted text.
 
-Due to the amount of twitter messages needed to be decrypted, Lyrebird can now run its decryption with multiple processes. It will do this by taking in a list text with directories of all the decrypted messages and its designated output directory. 
+Due to the amount of twitter messages needed to be decrypted, Lyrebird can now run its decryption with an optimized number of processes with your selection of process management algorithm. It will do this by first taking in the algorithm in the first line of the config file, then taking in a list text with directories of all the decrypted messages and its designated output directory. 
 
 HOW TO COMPILE:
 
-Using terminal, go to the directory with the source files and enter "make". The makefile should automatically compile it into an executable called Lyrebird.
+Using terminal, go to the directory with the source files and enter "make all". The makefile should automatically compile it into an executable called Lyrebird.
 
 HOW TO USE:
 
-To execute the program, save the list text into the same directory as Lyrebird. Using terminal, go to the directory and enter this command:
+To execute the program, save the config text into the same directory as Lyrebird. Using terminal, go to the directory and enter this command:
 
 "./lyrebird listnamehere.txt"
 
-Each line in listnamehere.txt will include the input directory and the output directory parted by a space.
+The first line in your config file should be either "round robin" or "fcfs", which will indicate to Lyrebird which algorithm you want to use. Anything else as the first line will cause an error.
+
+After that, each line in listnamehere.txt will include the input directory and the output directory parted by a space.
 
 SOURCES:
 
@@ -41,4 +43,14 @@ http://stackoverflow.com/questions/26900122/c-program-to-print-current-time
 I learned how to use the waitpid() function to catch any errors from this site:
 http://man7.org/linux/man-pages/man2/wait.2.html
 
+Learning about select() and how to use it to work with FCFS
+https://www.gnu.org/software/libc/manual/html_node/Waiting-for-I_002fO.html
+
+Creating pipes: 
+http://stackoverflow.com/questions/12683282/c-how-do-you-use-select-with-multiple-pipes
+ 
+http://www.gnu.org/software/libc/manual/html_node/Creating-a-Pipe.html
+ 
+Core Number:
+http://stackoverflow.com/questions/4586405/get-number-of-cpus-in-linux-using-c
 

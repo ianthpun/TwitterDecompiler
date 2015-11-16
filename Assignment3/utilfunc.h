@@ -11,9 +11,10 @@ TA: Scott Kristjanson
 #include <time.h>
 #include "memwatch.h"
 
-#define ull unsigned long long int
+char * CurrTime(time_t ltime);
+void ProcessCleanup(int ProcessCount, int ProcessArr[]);
+int AlgoCheck(char* algo);
 
-ull mod_exps(ull base);
-char base41convert (ull num, char table[]);
-int decrypt(char* inputdir, char* outputdir);
+
+
 

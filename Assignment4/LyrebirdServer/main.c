@@ -45,8 +45,9 @@ time_t ltime;
 
 int main (int argc, char *argv[]) {
 
-int sockfd;
-struct sockaddr_in serveraddress;
+int listensocket,connectsocket;
+int sockaddrlen = sizeof(struct sockaddr);
+struct sockaddr_in serveraddress, clientaddress;
 
 
 
@@ -56,25 +57,40 @@ if (argc != 3){
 	exit(-1);}
 
 // start file pointers and open file
-/*
+
 FILE *input;
 FILE *output;
 input = fopen(argv[1], "r");
 output = fopen(argv[1], "w");
-*/
+
 
 
 
 SetServerAddress(&serveraddress);
 
-sockfd = socket(AF_INET, SOCK_STREAM, 0);
+listensocket = socket(AF_INET, SOCK_STREAM, 0);
 
-bind(sockfd, (struct sockaddr *) &serveraddress, sizeof(struct sockaddr_in));
+if(bind(listensocket, (struct sockaddr *) &serveraddress, sizeof(struct sockaddr_in))<0)
+	perror("bind");
 
-listen(sockfd, 5);
+if(listen(listensocket, 5)<0)
+	perror("listen");
 
-PrintSockAddrPort(sockfd);
+PrintSockAddrPort(listensocket);
 
+while(1){
+// wait for next connection from a host
+connectsocket = accept(listensocket, (struct sockaddr*)&clientaddress, &sockaddrlen);
+if (connectsocket < 0){
+	perror("accept");
+	exit(1);
+}
+
+fprintf(output, "[%s] Successfully connected to lyrebird client %s.\n", CurrTime(&ltime),inet_ntoa(clientaddress.sin_addr));
+
+
+
+}
 
 exit(0);
 

@@ -127,12 +127,13 @@ printf("client connected has a message \n");
 // find out which client caused it 
 	for(int i =0; i<clientnum;i++){
 		if(FD_ISSET(connectsocket[i], &connectedclients)){
-			// 3 msgs: first is status, second is msg length, third is message
 			int statusbuffer;
 			read(connectsocket[i], &statusbuffer,sizeof(int));
 
-			printf("message is %i\n", statusbuffer);
+			printf("Client is ready. Send work. \n", statusbuffer);
 			/*
+			// 3 msgs: first is status, second is msg length, third is message
+
 			// run cases depending on the status buffer here:
 
 
@@ -154,6 +155,12 @@ printf("client connected has a message \n");
 
 
 			*/
+			// write the length of incoming message first, then the message
+			int strlength = strlen(str);
+			write(connectsocket[i], &strlength, sizeof(int));
+			printf("message being sent is %s", str);
+			write(connectsocket[i], str, strlen(str));
+			break;
 
 		}
 

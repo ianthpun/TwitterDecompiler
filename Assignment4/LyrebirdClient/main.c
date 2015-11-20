@@ -48,7 +48,6 @@ int processstatus = 2;
 fd_set listenfd;
 FD_ZERO(&listenfd);
 
-
 struct timeval tv;
 tv.tv_sec = 2;
 tv.tv_usec = 0; 
@@ -70,11 +69,25 @@ serveraddress.sin_port = htons(atoi(argv[2]));
 
 connectsocket = connect(listensocket, &serveraddress, sizeof(struct sockaddr_in));
 printf("connected to client \n");
-// my write is blocked
+while(1){
+// write that im ready
 write(listensocket,&processstatus, sizeof(processstatus));
-printf("wrote some stuff to socket\n");
+printf("wrote ready status to server\n");
+// read incoming diretory message
+if(select(FD_SETSIZE, &listenfd, NULL,NULL,&tv)>0){
+	int dirsize = 0;
+	printf("new message incoming from server \n");
+	read(listensocket, &dirsize,sizeof(int));
+	char dirbuffer[dirsize+1];
+	bzero(&dirbuffer, dirsize+1);
+	printf("incoming message is %i long, reading message. \n",dirsize);
+	read(listensocket, dirbuffer, dirsize);
+	printf("recieved message is :%s \n", dirbuffer);
+	FD_SET(listensocket, &listenfd);
+}
+else FD_SET(listensocket, &listenfd);
+}
 
-while(1);
 
 //while(1);
 /*

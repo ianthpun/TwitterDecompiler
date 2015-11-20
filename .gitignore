@@ -8,3 +8,5 @@ Assignment3/main.o
 *.o
 
 Assignment4/LyrebirdServer/lyrebird
+
+*.o

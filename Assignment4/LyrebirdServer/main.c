@@ -42,12 +42,25 @@ void PrintSockAddrPort(int sockfd);
 
 time_t ltime;
 
-
 int main (int argc, char *argv[]) {
 
-int listensocket,connectsocket;
+int listensocket;
+int connectsocket[500]; // will make this a malloc later
+int clientnum = 0;
 int sockaddrlen = sizeof(struct sockaddr);
 struct sockaddr_in serveraddress, clientaddress;
+char str[2050];
+char clientstatus[5];
+fd_set listensockfd;
+fd_set connectedclients;
+FD_ZERO(&listensockfd);
+FD_ZERO(&connectedclients);
+
+
+// timeval is used for the SELECT function
+struct timeval tv;
+tv.tv_sec = 1;
+tv.tv_usec = 0; 
 
 
 
@@ -56,19 +69,24 @@ if (argc != 3){
 	printf( "You have put too many/few arguments.\n");
 	exit(-1);}
 
+
 // start file pointers and open file
 
 FILE *input;
 FILE *output;
 input = fopen(argv[1], "r");
-output = fopen(argv[1], "w");
+output = fopen(argv[2], "w");
 
-
-
+//if input returns 0 the input file is missing
+if (input == 0){
+	printf("Input file is missing.\n");
+	exit(-2);
+}
 
 SetServerAddress(&serveraddress);
 
 listensocket = socket(AF_INET, SOCK_STREAM, 0);
+FD_SET(listensocket,&listensockfd);
 
 if(bind(listensocket, (struct sockaddr *) &serveraddress, sizeof(struct sockaddr_in))<0)
 	perror("bind");
@@ -76,26 +94,89 @@ if(bind(listensocket, (struct sockaddr *) &serveraddress, sizeof(struct sockaddr
 if(listen(listensocket, 5)<0)
 	perror("listen");
 
+
 PrintSockAddrPort(listensocket);
 
+
+
+while(fgets(str, 2050, input)){
 while(1){
-// wait for next connection from a host
-connectsocket = accept(listensocket, (struct sockaddr*)&clientaddress, &sockaddrlen);
-if (connectsocket < 0){
-	perror("accept");
-	exit(1);
+
+// check if any New clients have showed up
+if(select(FD_SETSIZE, &listensockfd, NULL,NULL,&tv)>0){
+	connectsocket[clientnum] = accept(listensocket, (struct sockaddr*)&clientaddress, &sockaddrlen);
+	printf("Successfully connected to Client %s \n", inet_ntoa(clientaddress.sin_addr));
+	fprintf(output, "[%s] Successfully connected to lyrebird client %s.\n", CurrTime(&ltime),inet_ntoa(clientaddress.sin_addr));
+	// put connectsocket into fdset for incoming client messages
+	FD_SET(connectsocket[clientnum], &connectedclients);
+	clientnum++;
+
+}
+else {
+/*if(FD_ISSET(connectsocket[0], &connectedclients)!=0)
+		printf("new connection is being watched correctly\n"); */
+FD_SET(listensocket,&listensockfd);} // reset FDSet 
+
+
+
+
+
+// check if connected clients are free
+if(select(FD_SETSIZE, &connectedclients, NULL,NULL,&tv)>0){
+printf("client connected has a message \n");
+// find out which client caused it 
+	for(int i =0; i<clientnum;i++){
+		if(FD_ISSET(connectsocket[i], &connectedclients)){
+			// 3 msgs: first is status, second is msg length, third is message
+			int statusbuffer;
+			read(connectsocket[i], &statusbuffer,sizeof(int));
+
+			printf("message is %i\n", statusbuffer);
+			/*
+			// run cases depending on the status buffer here:
+
+
+
+
+			// get msg size and create buffer depending on that
+			int msgsize;
+			read(connectsocket[i], &msgsize, sizeof(int));
+			char msgbuffer[msgsize+1];
+			bzero(&msgbuffer, msgsize+1);
+			// read msg into msgbuffer
+			read(connectsocket[i],msgbuffer,msgsize);
+			// do some stuff with the msg
+			write(connectsocket[i],str, strlen(str));
+			break;
+			/*
+
+
+
+
+			*/
+
+		}
+
+	}
+// break the while loop
+break;
+}
+else{
+//reset the SELECT for clients
+for(int i = 0; i < clientnum; i++){
+	FD_SET(connectsocket[i], &connectedclients);
+}
 }
 
-fprintf(output, "[%s] Successfully connected to lyrebird client %s.\n", CurrTime(&ltime),inet_ntoa(clientaddress.sin_addr));
 
-
+// end of while(1)
 
 }
 
+}
 exit(0);
 
 }
-
 
 
 // SetServerAddress gets the connect server address and puts it into sockaddr_in serveraddress for binding.
@@ -134,9 +215,11 @@ else
     printf("[%s] lyrebird.server: PID %i on host %s, port %i\n", CurrTime(&ltime), getpid(), inet_ntoa(sockbuffer.sin_addr), ntohs(sockbuffer.sin_port));
 
 }
+/*
+void NewClientCheck(int listensocket, int listensockfd, int clientnum, int connectsocket[], int connectedclients){
 
 
-
+*/
 
 
 

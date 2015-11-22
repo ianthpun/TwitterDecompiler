@@ -76,14 +76,7 @@ exit(0);
 
 
 void pipedecryption(FILE *input, int CoreNumber){
-/* 
 
-Algochoice = 1
-We are using FCFS
-Algochoice = 2
-We are using Round Robin
-
-*/
 int ProcessCount = 0;
 fd_set rfds;
 fd_set wfds;
@@ -161,6 +154,7 @@ for(int i = 0; i < ProcessTotal; i++){
         write(ProcessReadyPipe[i][1],&ProcessStatus,sizeof(ProcessStatus));
         }
         // Process is done all jobs. Close its writing pipe.
+        printf("closing all work, jobs are done \n");
         close(ProcessReadyPipe[i][1]);
         exit(0);
         }
@@ -225,8 +219,6 @@ ProcessCleanup(ProcessTotal, ProcessArr);
 fclose(input);
 exit(0);
 }
-
-
 
 
 

@@ -10,3 +10,7 @@ Assignment3/main.o
 Assignment4/LyrebirdServer/lyrebird
 
 *.o
+
+Assignment4/LyrebirdClient/lyrebird
+
+*.o

@@ -41,10 +41,11 @@ time_t ltime;
 
 int main (int argc, char *argv[]) {
 
-int listensocket,connectsocket;
+int corenumber = sysconf(_SC_NPROCESSORS_ONLN);
+int listensocket;
 int sockaddrlen = sizeof(struct sockaddr);
 struct sockaddr_in serveraddress;
-int processstatus = 2;
+int readystatus = 1;
 fd_set listenfd;
 FD_ZERO(&listenfd);
 
@@ -58,7 +59,7 @@ if (argc != 3){
 	printf( "You have put too many/few arguments.\n");
 	exit(-1);}
 
-
+// set up socket 
 listensocket = socket(AF_INET, SOCK_STREAM, 0);
 FD_SET(listensocket,&listenfd);
 
@@ -66,18 +67,21 @@ FD_SET(listensocket,&listenfd);
 serveraddress.sin_addr.s_addr = inet_addr(argv[1]);
 serveraddress.sin_port = htons(atoi(argv[2]));
 
-
-connectsocket = connect(listensocket, &serveraddress, sizeof(struct sockaddr_in));
-printf("connected to client \n");
+connect(listensocket, &serveraddress, sizeof(struct sockaddr_in));
+printf("connected to server \n");
 while(1){
 // write that im ready
-write(listensocket,&processstatus, sizeof(processstatus));
-printf("wrote ready status to server\n");
+write(listensocket,&readystatus, sizeof(readystatus));
 // read incoming diretory message
 if(select(FD_SETSIZE, &listenfd, NULL,NULL,&tv)>0){
 	int dirsize = 0;
-	printf("new message incoming from server \n");
 	read(listensocket, &dirsize,sizeof(int));
+	// check to see if socket was closed = jobs are done.
+	if(dirsize == 0){
+		//printf("return of read is 0, leaving while loop. \n");
+		break;
+	}
+	printf("new message incoming from server \n");
 	char dirbuffer[dirsize+1];
 	bzero(&dirbuffer, dirsize+1);
 	printf("incoming message is %i long, reading message. \n",dirsize);
@@ -88,43 +92,8 @@ if(select(FD_SETSIZE, &listenfd, NULL,NULL,&tv)>0){
 else FD_SET(listensocket, &listenfd);
 }
 
-
-//while(1);
-/*
-while(1){
-
-if(select(FD_SETSIZE, &listenfd, NULL,NULL,&tv)>0){
-printf("Recieving msg \n");
-char recvBuff[2050];
-if(recv(listensocket, recvBuff, sizeof(recvBuff)-1, 0)<=0){
-break;}
-
-printf("recieved msg from server: %s\n", recvBuff);
-write(listensocket,processstatus, strlen(processstatus));
-}
-
-else FD_SET(listensocket,&listenfd);
-
-}
-
-
-
-
-/*
-1) we will read from the socket the message incoming which directories.
-2) parse them, and throw them into pipe encryption, which always runs FCFS
-3) Each time a decryption finishes, pipe back up to parent its done, then parent will 
-send that ready status to server through a socket
-4) server will have all the sockets that are connected in a fd_set, which is run on a select.
-SELECT will find which one is available and send over.
-*/
-
-
-
-
-
-
-
+printf("no more messages, exiting \n");
+close(listensocket);
 
 exit(0);
 

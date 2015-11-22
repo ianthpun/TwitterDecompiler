@@ -56,7 +56,6 @@ fd_set connectedclients;
 FD_ZERO(&listensockfd);
 FD_ZERO(&connectedclients);
 
-
 // timeval is used for the SELECT function
 struct timeval tv;
 tv.tv_sec = 1;
@@ -127,44 +126,41 @@ printf("client connected has a message \n");
 // find out which client caused it 
 	for(int i =0; i<clientnum;i++){
 		if(FD_ISSET(connectsocket[i], &connectedclients)){
-			int statusbuffer;
-			read(connectsocket[i], &statusbuffer,sizeof(int));
+			int msgtype;
+			read(connectsocket[i], &msgtype,sizeof(int));
+			switch(msgtype){
+	   //  msgtype is a status ready from child, send a status 1 for more output work.			
+		      case 1:{ 
+		      	printf("Client is ready. Send work. \n");
+		      	int strlength = strlen(str);
+				write(connectsocket[i], &strlength, sizeof(int));
+				printf("message being sent is %s\n", str);
+				write(connectsocket[i], str, strlen(str));
+				break;}
 
-			printf("Client is ready. Send work. \n", statusbuffer);
-			/*
-			// 3 msgs: first is status, second is msg length, third is message
-
-			// run cases depending on the status buffer here:
-
-
-
-
-			// get msg size and create buffer depending on that
-			int msgsize;
-			read(connectsocket[i], &msgsize, sizeof(int));
-			char msgbuffer[msgsize+1];
-			bzero(&msgbuffer, msgsize+1);
-			// read msg into msgbuffer
-			read(connectsocket[i],msgbuffer,msgsize);
-			// do some stuff with the msg
-			write(connectsocket[i],str, strlen(str));
-			break;
-			/*
-
-
-
-
-			*/
-			// write the length of incoming message first, then the message
-			int strlength = strlen(str);
-			write(connectsocket[i], &strlength, sizeof(int));
-			printf("message being sent is %s", str);
-			write(connectsocket[i], str, strlen(str));
-			break;
-
-		}
+		// msgtype is an incoming message, receieve msg and output to log		
+      		  case 2:{
+      		  	printf("Client has a message. Getting msg length \n");
+      		  	int msgsize;
+				read(connectsocket[i], &msgsize,sizeof(int));
+				char msgbuffer[msgsize+1];
+				bzero(&msgbuffer, msgsize+1);
+				printf("incoming message is %i long, reading message. \n",msgsize);
+				read(connectsocket[i], msgbuffer, msgsize);
+				printf("recieved message is :%s \n", msgbuffer);
+      		  	break;}
+      	//client possibily dissconnected	  	
+      		  default:{
+      		  	printf("Client has disconnected \n");
+      		  	break;}
+   		}
 
 	}
+
+	}
+//reset the SELECT for clients
+for(int i = 0; i < clientnum; i++){
+	FD_SET(connectsocket[i], &connectedclients);}
 // break the while loop
 break;
 }
@@ -181,6 +177,20 @@ for(int i = 0; i < clientnum; i++){
 }
 
 }
+
+
+// end of file. Close all sockets with clients to indicate we're disconnected
+
+for (int i = 0; i <clientnum;i++){
+printf("closing client %i \n", i);
+close(connectsocket[i]);}
+
+
+
+
+
+
+
 exit(0);
 
 }

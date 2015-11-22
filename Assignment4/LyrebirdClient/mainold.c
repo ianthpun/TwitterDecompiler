@@ -75,7 +75,7 @@ exit(0);
 }
 
 
-void pipedecryption(FILE *input, int CoreNumber, int algochoice){
+void pipedecryption(FILE *input, int CoreNumber){
 /* 
 
 Algochoice = 1
@@ -156,9 +156,9 @@ for(int i = 0; i < ProcessTotal; i++){
         printf("[%s] Child Process ID #%i will decrypt %s. \n",CurrTime(ltime),getpid(),input);
         if(decrypt(input,output) > 0)
         printf("[%s] Process ID #%i decrypted %s successfully. \n",CurrTime(ltime),getpid(),input);
-        if (algochoice == 1){
+        if
         // Case for FCFS: send msg to parent saying its ready.
-        write(ProcessReadyPipe[i][1],&ProcessStatus,sizeof(ProcessStatus));}
+        write(ProcessReadyPipe[i][1],&ProcessStatus,sizeof(ProcessStatus));
         }
         // Process is done all jobs. Close its writing pipe.
         close(ProcessReadyPipe[i][1]);
@@ -180,7 +180,6 @@ int dircount;
 
 
 while(fgets(directory, 2050, input)){
-if (algochoice == 1){
 //Selected Algo is FCFS
 
 // direct all the children with a first set of work first
@@ -213,20 +212,6 @@ for (int i = 0; i<= ProcessTotal;i++){
         }
 }
 
-}
-
-}
-
-if (algochoice == 2){
-// Selected Algo is Round Robin
-// send jobs into the pipe according to the round robin rule
-if(RRcount == (ProcessTotal))
-        RRcount = 0;
-char* dir = strtok(directory, "\n");
-directorysize = strlen(dir);
-write(EncryptionDirectoryPipe[RRcount][1], &directorysize, sizeof(int));
-write(EncryptionDirectoryPipe[RRcount][1], dir, strlen(dir));
-RRcount++;
 }
 
 }

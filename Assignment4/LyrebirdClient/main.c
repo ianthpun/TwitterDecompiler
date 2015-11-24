@@ -136,7 +136,7 @@ void FCFSDecryption(char* job, int jobcount, int ProcessTotal, int  EDPipe[][2],
 int directorysize;
 // timeval is used for the SELECT function
 struct timeval tv;
-tv.tv_sec = 1;
+tv.tv_sec = 100;
 tv.tv_usec = 0; 
 
 // direct all the children with a first set of work first
@@ -150,10 +150,10 @@ write(EDPipe[jobcount][1], dir, strlen(dir));
 // next, wait on select to see when the process is free using SELECT, then 
 //check to see which process is ready, then send the next job to it.
 else {
-int ret = select(FD_SETSIZE, &rfds, NULL,NULL,&tv);
-if (ret>0){
+int ret = select(FD_SETSIZE, rfds, NULL,NULL,&tv);
+    if (ret>0){
 for (int i = 0; i<= ProcessTotal;i++){
-        if (FD_ISSET(PRPipe[i][0], &rfds)){
+        if (FD_ISSET(PRPipe[i][0], rfds)){
         int statusbuffer;
         read(PRPipe[i][0], statusbuffer,sizeof(int));
         char* dir = strtok(job, "\n");

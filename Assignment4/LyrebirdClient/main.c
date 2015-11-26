@@ -18,6 +18,9 @@ Due to the amount of twitter messages needed to be decrypted, Lyrebird can now r
 It will do this by first taking in the algorithm in the first line of the config file, then taking in a list text with directories of all the decrypted messages and its designated output directory. 
 */
 
+
+// BUGS : when all work is sent, it seems to close work being done.
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,6 +54,9 @@ int readystatus = 1;
 fd_set listenfd;
 FD_ZERO(&listenfd);
 int jobcount = 0;
+const int incomingmessage = 2;
+char fulldirectory[2050];
+
 
 // from CreateChildProcess
 int CoreNumber = sysconf(_SC_NPROCESSORS_ONLN);
@@ -65,7 +71,7 @@ struct timeval tv;
 tv.tv_sec = 2;
 tv.tv_usec = 0; 
 
-
+char* dir;
 //has to be exactly 2 arguments
 if (argc != 3){
 	printf( "You have put too many/few arguments.\n");
@@ -87,13 +93,13 @@ for(int i = 0; i < ProcessTotal; i++){
     CreateChildProcess(EncryptionDirectoryPipe[i], ProcessReadyPipe[i], ProcessArr[i], &rfds, i);
 }
 
-
-while(1){
-// write that I have a child ready.
+// write that I have a child ready !!!!!!!!!!! 
 write(listensocket,&readystatus, sizeof(readystatus));
+int dirsize = 0;
+while(1){
 // get the incoming job from Server
+puts("checking for new messages from server");
 if(select(FD_SETSIZE, &listenfd, NULL,NULL,&tv)>0){
-	int dirsize = 0;
 	read(listensocket, &dirsize,sizeof(int));
 	// check to see if socket was closed = jobs are done.
 	if(dirsize == 0){
@@ -106,14 +112,74 @@ if(select(FD_SETSIZE, &listenfd, NULL,NULL,&tv)>0){
 	read(listensocket, dirbuffer, dirsize);
 	printf("recieved message is :%s \n", dirbuffer);
 	// give it to one of the children that is ready.
-    FCFSDecryption(dirbuffer, jobcount, ProcessTotal, EncryptionDirectoryPipe, ProcessReadyPipe, &rfds);
-    jobcount++;
+// try this new method!!!!!!!!!!!!!!!!!!
+// copy the buffer to a full directory for processing later
+strcpy(fulldirectory, dirbuffer);
+
+if (jobcount < ProcessTotal){
+printf("job count is %i\n", jobcount);
+dir = strtok(dirbuffer, "\n");
+dirsize = strlen(dir);
+write(EncryptionDirectoryPipe[jobcount][1], &dirsize, sizeof(int));
+write(EncryptionDirectoryPipe[jobcount][1], dir, strlen(dir));
+jobcount++;
+// write that i have a child ready so we can get fill up the children
+write(listensocket,&readystatus, sizeof(readystatus));
+}
+// add the socket back to the fd_set
+FD_SET(listensocket, &listenfd);
+}
+else {
+    puts("no new msgs from server");
+    puts(dir);
+    FD_SET(listensocket, &listenfd);}
+
+// check if there are any new messages from the children! 
+puts("checking for new messages from children");
+if(select(FD_SETSIZE, &rfds, NULL,NULL,&tv)>0){
+puts("new message from child");
+    for (int i = 0; i< ProcessTotal;i++){
+            if (FD_ISSET(ProcessReadyPipe[i][0], &rfds)){
+                // get the msglen coming in from the child process
+                int msglen;
+                read(ProcessReadyPipe[i][0], &msglen,sizeof(int));
+                if (msglen == 0)
+                    break;
+                // get the msg incoming
+                char msgbuffer[msglen+1];
+                bzero(&msgbuffer, msglen+1);
+                read(ProcessReadyPipe[i][0], msgbuffer,msglen);
+           //     printf("msgbuffer is %s\n", msgbuffer);
+                // output the msg to the socket back to home server.
+                write(listensocket,&incomingmessage, sizeof(int));
+                write(listensocket,&msglen, sizeof(int));
+                write(listensocket,&msgbuffer,msglen);
+                // write the next encryption directory to the responding child
+                dir = strtok(fulldirectory, "\n");
+                dirsize = strlen(dir);
+                printf("dirlength before sending to child is :%i\n",dirsize);
+                write(EncryptionDirectoryPipe[i][1], &dirsize, sizeof(int));
+                printf("dir before sending to child is :%s\n",dir);
+                write(EncryptionDirectoryPipe[i][1], dir, dirsize);
+                
+                // reset the FDset
+                for (int i= 0; i < ProcessTotal; i++){
+                FD_SET(ProcessReadyPipe[i][0],&rfds);} 
+                break;
+            }
+            }
+}
+else {
+puts("no new messages from children");
+for (int i= 0; i < ProcessTotal; i++){
+FD_SET(ProcessReadyPipe[i][0],&rfds);}}
+}
 
 
-	FD_SET(listensocket, &listenfd);
-}
-else FD_SET(listensocket, &listenfd);
-}
+
+
+
+
 
 printf("no more messages, exiting \n");
 close(listensocket);
@@ -147,29 +213,12 @@ printf("job count is %i\n", jobcount);
 write(EDPipe[jobcount][1], &directorysize, sizeof(int));
 write(EDPipe[jobcount][1], dir, strlen(dir));
 }
-// next, wait on select to see when the process is free using SELECT, then 
-//check to see which process is ready, then send the next job to it.
-else {
-int ret = select(FD_SETSIZE, rfds, NULL,NULL,&tv);
-    if (ret>0){
-for (int i = 0; i<= ProcessTotal;i++){
-        if (FD_ISSET(PRPipe[i][0], rfds)){
-        int statusbuffer;
-        read(PRPipe[i][0], statusbuffer,sizeof(int));
-        char* dir = strtok(job, "\n");
-        directorysize = strlen(dir);
-        write(EDPipe[i][1], &directorysize, sizeof(int));
-        write(EDPipe[i][1], dir, strlen(dir));
-        jobcount++;
+// next, wait on select to see when the child has a msg using SELECT, then 
+//check to see which process it is, send the msg to server, then send the next job to it.
+/*else {
 
-        // reset the FDset
-        for (int i= 0; i < ProcessTotal; i++){
-        FD_SET(PRPipe[i][0],rfds);} 
-        break;}
-        }
-}
 
-}
+}*/
 
 }
 
@@ -204,6 +253,7 @@ char* directory[2050];
 int directorysize;
 time_t ltime;
 // stuff
+const int incomingmessage = 2;
 
 int ChildID = fork();
 
@@ -241,10 +291,24 @@ int ChildID = fork();
         output = strtok(output, "\n");
         // run decryption
         printf("[%s] Child Process ID #%i will decrypt %s. \n",CurrTime(ltime),getpid(),input);
-        if(decrypt(input,output) > 0)
+        if(decrypt(input,output) > 0){
         printf("[%s] Process ID #%i decrypted %s successfully. \n",CurrTime(ltime),getpid(),input);
-        // Case for FCFS: send msg to parent saying its ready.
-        write(ProcessReadyPipe[1],&ProcessStatus,sizeof(ProcessStatus));
+        char* pipemsg;
+        asprintf(&pipemsg, "successfully decrypted %s in process %i.", input, getpid());
+        int pipemsglen = strlen(pipemsg);
+        printf("Pipe message is %i long", pipemsglen);
+        write(ProcessReadyPipe[1],&pipemsglen,sizeof(int));
+        write(ProcessReadyPipe[1], pipemsg, strlen(pipemsg));
+        }
+        else{
+        printf("decryption failed \n");
+        char* pipemsg;
+        asprintf(&pipemsg, "encountered an error: unable to open file %s in process %i.", input, getpid());
+        int pipemsglen = strlen(pipemsg);
+        write(ProcessReadyPipe[1],&pipemsglen,sizeof(int));
+        write(ProcessReadyPipe[1], pipemsg, strlen(pipemsg));
+        }
+
         }
         // Process is done all jobs. Close its writing pipe.
         printf("closing all work, jobs are done \n");

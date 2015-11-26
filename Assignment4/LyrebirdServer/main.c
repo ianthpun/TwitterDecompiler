@@ -55,6 +55,8 @@ fd_set listensockfd;
 fd_set connectedclients;
 FD_ZERO(&listensockfd);
 FD_ZERO(&connectedclients);
+char (*clientIP[500])[50]; // will make malloc later
+int msgsize;
 
 // timeval is used for the SELECT function
 struct timeval tv;
@@ -106,6 +108,8 @@ if(select(FD_SETSIZE, &listensockfd, NULL,NULL,&tv)>0){
 	connectsocket[clientnum] = accept(listensocket, (struct sockaddr*)&clientaddress, &sockaddrlen);
 	printf("Successfully connected to Client %s \n", inet_ntoa(clientaddress.sin_addr));
 	fprintf(output, "[%s] Successfully connected to lyrebird client %s.\n", CurrTime(&ltime),inet_ntoa(clientaddress.sin_addr));
+	// put the client IP address to ClientIP array to recall it later
+	clientIP[clientnum] = inet_ntoa(clientaddress.sin_addr);
 	// put connectsocket into fdset for incoming client messages
 	FD_SET(connectsocket[clientnum], &connectedclients);
 	clientnum++;
@@ -131,23 +135,39 @@ printf("client connected has a message \n");
 			switch(msgtype){
 	   //  msgtype is a status ready from child, send a status 1 for more output work.			
 		      case 1:{ 
-		      	printf("Client is ready. Send work. \n");
+		      	printf("Client from %s is ready. Send work. \n", clientIP[i]);
+
 		      	int strlength = strlen(str);
 				write(connectsocket[i], &strlength, sizeof(int));
 				printf("message being sent is %s\n", str);
 				write(connectsocket[i], str, strlen(str));
+				// everything below this could be some function we make! =)
+				char *inouttemp = strtok(str, " ");
+				inouttemp = strtok(inouttemp, "\n");
+       		    char *input = inouttemp;
+				fprintf(output, "[%s] The lyrebird client %s has been given the task of decrypting %s.\n", CurrTime(&ltime),clientIP[i], input);
 				break;}
 
 		// msgtype is an incoming message, receieve msg and output to log		
       		  case 2:{
       		  	printf("Client has a message. Getting msg length \n");
-      		  	int msgsize;
 				read(connectsocket[i], &msgsize,sizeof(int));
 				char msgbuffer[msgsize+1];
 				bzero(&msgbuffer, msgsize+1);
 				printf("incoming message is %i long, reading message. \n",msgsize);
 				read(connectsocket[i], msgbuffer, msgsize);
 				printf("recieved message is :%s \n", msgbuffer);
+				fprintf(output,"[%s] The lyrebird client %s has %s\n", CurrTime(&ltime), clientIP[i],msgbuffer);
+				// after receving the message, push the new message to the client
+				int strlength = strlen(str);
+				write(connectsocket[i], &strlength, sizeof(int));
+				printf("message being sent is %s\n", str);
+				write(connectsocket[i], str, strlen(str));
+				// everything below this could be some function we make! =)
+				char *inouttemp = strtok(str, " ");
+				inouttemp = strtok(inouttemp, "\n");
+       		    char *input = inouttemp;
+				fprintf(output, "[%s] The lyrebird client %s has been given the task of decrypting %s.\n", CurrTime(&ltime),clientIP[i], input);
       		  	break;}
       	//client possibily dissconnected	  	
       		  default:{
@@ -228,9 +248,10 @@ int len = sizeof(struct sockaddr);
 
 if (getsockname(sockfd, (struct sockaddr *)&sockbuffer, &len) == -1)
     perror("getsockname");
-else
+else{
     printf("[%s] lyrebird.server: PID %i on host %s, port %i\n", CurrTime(&ltime), getpid(), inet_ntoa(sockbuffer.sin_addr), ntohs(sockbuffer.sin_port));
 
+}
 }
 /*
 void NewClientCheck(int listensocket, int listensockfd, int clientnum, int connectsocket[], int connectedclients){

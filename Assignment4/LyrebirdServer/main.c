@@ -105,89 +105,136 @@ PrintSockAddrPort(listensocket);
 
 while(fgets(str, 2050, input)){
 	while(1){
-	NewClientConnect(&listensockfd, &connectedclients, listensocket, connectsocket, clientIP, &clientnum, output);
-	NewClientMessageCheck(&connectedclients, clientnum, connectsocket,clientIP, str, output);
-	}	
+	//NewClientConnect(&listensockfd, &connectedclients, listensocket, connectsocket, clientIP, &clientnum, output);
+	//NewClientMessageCheck(&connectedclients, clientnum, connectsocket,clientIP, str, output);
+	// check if any New clients have showed up
+	if(select(FD_SETSIZE, &listensockfd, NULL,NULL,&tv)>0){
+		connectsocket[clientnum] = accept(listensocket, (struct sockaddr*)&clientaddress, &sockaddrlen);
+		printf("Successfully connected to Client %s \n", inet_ntoa(clientaddress.sin_addr));
+		fprintf(output, "[%s] Successfully connected to lyrebird client %s.\n", CurrTime(&ltime),inet_ntoa(clientaddress.sin_addr));
+		// put the client IP address to ClientIP array to recall it later
+		clientIP[clientnum] = inet_ntoa(clientaddress.sin_addr);
+		// put connectsocket into fdset for incoming client messages
+		FD_SET(connectsocket[clientnum], &connectedclients);
+		clientnum++;
+
+	}
+	else {
+	/*if(FD_ISSET(connectsocket[0], &connectedclients)!=0)
+			printf("new connection is being watched correctly\n"); */
+	FD_SET(listensocket,&listensockfd);} // reset FDSet 
+
+
+
+
+int msgtype = 0;
+
+	// check if connected clients are free
+	if(select(FD_SETSIZE, &connectedclients, NULL,NULL,&tv)>0){
+	printf("client connected has a message \n");
+	printf("clientnum is %i\n", clientnum);
+	// find out which client caused it 
+		for(int i =0; i<clientnum;i++){
+			if(FD_ISSET(connectsocket[i], &connectedclients)){
+				read(connectsocket[i], &msgtype,sizeof(int));
+				switch(msgtype){
+		   //  msgtype is a status ready from child, send a status 1 for more output work.			
+			      case 1:{ 
+			      	printf("Client from %s is ready. Send work. \n", clientIP[i]);
+
+			      	int strlength = strlen(str);
+					write(connectsocket[i], &strlength, sizeof(int));
+					printf("message being sent is %s\n", str);
+					write(connectsocket[i], str, strlen(str));
+					// everything below this could be some function we make! =)
+					char *inouttemp = strtok(str, " ");
+					inouttemp = strtok(inouttemp, "\n");
+	       		    char *input = inouttemp;
+					fprintf(output, "[%s] The lyrebird client %s has been given the task of decrypting %s.\n", CurrTime(&ltime),clientIP[i], input);
+					break;}
+
+			// msgtype is an incoming message, receieve msg and output to log		
+	      		  case 2:{
+	      		  	printf("Client has a message. Getting msg length \n");
+					read(connectsocket[i], &msgsize,sizeof(int));
+					char msgbuffer[msgsize+1];
+					bzero(&msgbuffer, msgsize+1);
+					printf("incoming message is %i long, reading message. \n",msgsize);
+					read(connectsocket[i], msgbuffer, msgsize);
+					printf("recieved message is :%s \n", msgbuffer);
+					fprintf(output,"[%s] The lyrebird client %s has %s\n", CurrTime(&ltime), clientIP[i],msgbuffer);
+					// after receving the message, push the new message to the client
+					int strlength = strlen(str);
+					write(connectsocket[i], &strlength, sizeof(int));
+					printf("message being sent is %s\n", str);
+					write(connectsocket[i], str, strlen(str));
+					// everything below this could be some function we make! =)
+					char *inouttemp = strtok(str, " ");
+					inouttemp = strtok(inouttemp, "\n");
+	       		    char *input = inouttemp;
+					fprintf(output, "[%s] The lyrebird client %s has been given the task of decrypting %s.\n", CurrTime(&ltime),clientIP[i], input);
+	      		  	break;}
+	      	//client possibily dissconnected	  	
+	      		  default:{
+	      		  	printf("Client has disconnected \n");
+	      		  	break;}
+	   		}
+	   		// end of if
+		}
+	// end of for
+		}
+	//reset the SELECT for clients
+	for(int i = 0; i < clientnum; i++){
+		FD_SET(connectsocket[i], &connectedclients);}
+	// end of select
+	// break out of the while loop to get new file.
+	break;
+
+	}
+	else{//reset the SELECT for clients
+	for(int i = 0; i < clientnum; i++){
+		FD_SET(connectsocket[i], &connectedclients);}}
+
+
+		}	
 }
 
 // end of file. Send a message to all the clients requesting to finish their jobs
 puts("writing closing file to everyone");
-
 
 for (int i =0; i< clientnum; i++){
 	write(connectsocket[i], &jobsfinished, sizeof(int));
 }
 
 
-// do a SELECT on incoming messages to finish up the remainder, then close the sockets when its done.
 
-while(1){
-
-if(select(FD_SETSIZE, &connectedclients, NULL,NULL,&tv)>0){
-printf("client connected has a message \n");
-// find out which client caused it 
-	for(int i =0; i<clientnum;i++){
-		if(FD_ISSET(connectsocket[i], &connectedclients)){
-			int msgtype;
-			read(connectsocket[i], &msgtype,sizeof(int));
-			switch(msgtype){	   //  msgtype is a status ready from child, send a status 1 for more output work.			
-		// msgtype is an incoming message, receieve msg and output to log		
-      		  case 2:{
-      		  	printf("Client has a message. Getting msg length \n");
-				read(connectsocket[i], &msgsize,sizeof(int));
-				char msgbuffer[msgsize+1];
-				bzero(&msgbuffer, msgsize+1);
-				printf("incoming message is %i long, reading message. \n",msgsize);
-				read(connectsocket[i], msgbuffer, msgsize);
-				printf("recieved message is :%s \n", msgbuffer);
-				fprintf(output,"[%s] The lyrebird client %s has %s\n", CurrTime(&ltime), clientIP[i],msgbuffer);
-				// after receving the message, push the new message to the client
-				int strlength = strlen(str);
-				write(connectsocket[i], &strlength, sizeof(int));
-				printf("message being sent is %s\n", str);
-				write(connectsocket[i], str, strlen(str));
-				// everything below this could be some function we make! =)
-				char *inouttemp = strtok(str, " ");
-				inouttemp = strtok(inouttemp, "\n");
-       		    char *input = inouttemp;
-				fprintf(output, "[%s] The lyrebird client %s has been given the task of decrypting %s.\n", CurrTime(&ltime),clientIP[i], input);
-      		  	break;}
-
-      		  case 3:{ 	// client has exited correctly.
-
-      		  	break;
-
-
-
-
-
-      		  }
-      	//client possibily dissconnected	  	
-      		  default:{
-      		  	printf("Client has disconnected \n");
-      		  	break;}
-   		}
+for(int i=0; i<clientnum; i++){
+	while(1){
+	int msgtype;
+	printf("i is %i \n",i);
+	puts("im here");
+	if(read(connectsocket[i], &msgtype, sizeof(int))>0){ // it gets stuck here at connectsocket[0]
+      	printf("Client has a message. Getting msg length \n");
+		read(connectsocket[i], &msgsize,sizeof(int));
+		char msgbuffer[msgsize+1];
+		bzero(&msgbuffer, msgsize+1);
+		printf("incoming message is %i long, reading message. \n",msgsize);
+		read(connectsocket[i], msgbuffer, msgsize);
+		printf("recieved message is :%s \n", msgbuffer);
+		fprintf(output,"[%s] The lyrebird client %s has %s\n", CurrTime(&ltime), clientIP[i],msgbuffer);
 
 	}
-
+else break;
 
 }
-//reset the SELECT for clients
-for(int i = 0; i < clientnum; i++){
-	FD_SET(connectsocket[i], &connectedclients);}
-// break the while loop
-break;
+
 }
 
-
-for (int i = 0; i <clientnum;i++){
-printf("closing client %i \n", i);
-close(connectsocket[i]);}
-
+puts("i think im done now.\n");
 
 exit(0);
 
-}
+
 }
 
 
@@ -242,22 +289,7 @@ tv.tv_sec = 1;
 tv.tv_usec = 0; 
 
 
-// check if any New clients have showed up
-if(select(FD_SETSIZE, listensockfd, NULL,NULL,&tv)>0){
-	connectsocket[*clientnum] = accept(listensocket, (struct sockaddr*)&clientaddress, &sockaddrlen);
-	printf("Successfully connected to Client %s \n", inet_ntoa(clientaddress.sin_addr));
-	fprintf(output, "[%s] Successfully connected to lyrebird client %s.\n", CurrTime(&ltime),inet_ntoa(clientaddress.sin_addr));
-	// put the client IP address to ClientIP array to recall it later
-	clientIP[*clientnum] = inet_ntoa(clientaddress.sin_addr);
-	// put connectsocket into fdset for incoming client messages
-	FD_SET(connectsocket[*clientnum], connectedclients);
-	(*clientnum)++;
 
-}
-else {
-/*if(FD_ISSET(connectsocket[0], &connectedclients)!=0)
-		printf("new connection is being watched correctly\n"); */
-FD_SET(listensocket,listensockfd);} // reset FDSet 
 
 }
 

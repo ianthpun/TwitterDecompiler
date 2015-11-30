@@ -91,7 +91,7 @@ serveraddress.sin_addr.s_addr = inet_addr(argv[1]);
 serveraddress.sin_port = htons(atoi(argv[2]));
 
 connect(listensocket, &serveraddress, sizeof(struct sockaddr_in));
-printf("connected to server \n");
+printf("[%s] lyrebird client: PID %i connected to server %s on port %i. \n", CurrTime(&ltime), getpid(), argv[1],atoi(argv[2]));
 // create children for processing
 for(int i = 0; i < ProcessTotal; i++){
     LyrebirdPipe(EncryptionDirectoryPipe[i], ProcessReadyPipe[i]);
@@ -101,9 +101,8 @@ write(listensocket,&readystatus, sizeof(readystatus));
 
 int dirsize = 0;
 while(1){ 
-    if(childprocessmsgcheck(&rfds,ProcessReadyPipe,EncryptionDirectoryPipe,listensocket,ProcessTotal)<0){ 
-        break;
-    }
+    if(childprocessmsgcheck(&rfds,ProcessReadyPipe,EncryptionDirectoryPipe,listensocket,ProcessTotal)<0)
+        break; 
 }
 
 for(int i =0; i< ProcessTotal; i++){
@@ -113,7 +112,6 @@ for(int i =0; i< ProcessTotal; i++){
 fd_set s;
 FD_ZERO(&s);
 for (int i=0; i< ProcessTotal; i++){
-close(EncryptionDirectoryPipe[i][1]);
     while(1){
     int msglen;
     FD_SET(ProcessReadyPipe[i][0],&s); 
@@ -133,20 +131,101 @@ close(EncryptionDirectoryPipe[i][1]);
         }
 
     }
-
+FD_ZERO(&s);
 }
+
+// run ProcessCleanup to make sure that all chidlren closed correctly.
+ProcessCleanup(ProcessTotal, ProcessArr);
 
 close(listensocket);
 
 // parent can now terminate.
-
+printf("[%s] Lyrebird client: PID %i completed its tasks and is exiting succesfully.\n", CurrTime(&ltime), getpid());
 exit(0);
 
 
 }
 
 
+int childprocessmsgcheck(fd_set *rfds, int PRP[][2], int EDP[][2], int listensocket, int ProcessTotal){
 
+char * dir;
+int dirsize = 0;
+struct timeval tv;
+tv.tv_sec = 2;
+tv.tv_usec = 0; 
+puts("checking for new messages from children");
+if(select(FD_SETSIZE, rfds, NULL,NULL,&tv)>0){
+puts("new message from child");
+    for (int i = 0; i< ProcessTotal;i++){
+            if (FD_ISSET(PRP[i][0], rfds)){
+                // get the msglen coming in from the child process
+                int msglen;
+                read(PRP[i][0], &msglen,sizeof(int));
+
+                if (msglen == 0)
+                    break;
+
+                // inital open the children.
+                else if (msglen == 1){
+                // tell server there is a child ready
+                write(listensocket,&readystatus, sizeof(readystatus));
+                msglen = 0;
+                // read new message from server
+                read(listensocket, &dirsize,sizeof(int));
+
+                char dirbuffer[dirsize+1];
+                bzero(&dirbuffer, dirsize+1);
+                read(listensocket, dirbuffer, dirsize);
+                // write message to children
+                dir = strtok(dirbuffer, "\n");
+                dirsize =strlen(dir);
+                write(EDP[i][1], &dirsize, sizeof(int)); //issue is here
+                write(EDP[i][1], dir, dirsize);
+
+                }
+                else{
+                // children are mature, msg from children are going to be real messages
+                // get the msg incoming
+                char msgbuffer[msglen+1];
+                bzero(&msgbuffer, msglen+1);
+                read(PRP[i][0], msgbuffer,msglen);
+           //     printf("msgbuffer is %s\n", msgbuffer);
+                // output the msg to the socket back to home server.
+                write(listensocket,&incomingmessage, sizeof(int));
+                write(listensocket,&msglen, sizeof(int));
+                write(listensocket,&msgbuffer,msglen);
+                // read from server, wait for response.
+                read(listensocket, &dirsize,sizeof(int));
+                if(dirsize == 3){
+                printf("Server has contacted client to finish up remaining jobs\n");
+                return -1;
+                }
+
+                char dirbuffer[dirsize+1];
+                bzero(&dirbuffer, dirsize+1);
+                read(listensocket, dirbuffer, dirsize);
+                // write message to children
+                dir = strtok(dirbuffer, "\n");
+                dirsize =strlen(dir);
+                write(EDP[i][1], &dirsize, sizeof(int));
+                write(EDP[i][1], dir, dirsize);
+                }
+
+            }
+        }
+// reset the FDset
+for (int j= 0; j < ProcessTotal; j++){
+FD_SET(PRP[j][0],rfds);} 
+}
+else {
+puts("no new messages from children");
+for (int i= 0; i < ProcessTotal; i++){
+FD_SET(PRP[i][0],rfds);}}
+
+return 0;
+
+}
 
 
 void LyrebirdPipe(int EDPipe[], int PRPipe[]){
@@ -255,85 +334,6 @@ int ChildID = fork();
 
 
 
-int childprocessmsgcheck(fd_set *rfds, int PRP[][2], int EDP[][2], int listensocket, int ProcessTotal){
-
-char * dir;
-int dirsize = 0;
-struct timeval tv;
-tv.tv_sec = 2;
-tv.tv_usec = 0; 
-puts("checking for new messages from children");
-if(select(FD_SETSIZE, rfds, NULL,NULL,&tv)>0){
-puts("new message from child");
-    for (int i = 0; i< ProcessTotal;i++){
-            if (FD_ISSET(PRP[i][0], rfds)){
-                // get the msglen coming in from the child process
-                int msglen;
-                read(PRP[i][0], &msglen,sizeof(int));
-
-                if (msglen == 0)
-                    break;
-
-                // inital open the children.
-                else if (msglen == 1){
-                // tell server there is a child ready
-                write(listensocket,&readystatus, sizeof(readystatus));
-                msglen = 0;
-                // read new message from server
-                read(listensocket, &dirsize,sizeof(int));
-
-                char dirbuffer[dirsize+1];
-                bzero(&dirbuffer, dirsize+1);
-                read(listensocket, dirbuffer, dirsize);
-                // write message to children
-                dir = strtok(dirbuffer, "\n");
-                dirsize =strlen(dir);
-                write(EDP[i][1], &dirsize, sizeof(int)); //issue is here
-                write(EDP[i][1], dir, dirsize);
-
-                }
-                else{
-                // children are mature, msg from children are going to be real messages
-                // get the msg incoming
-                char msgbuffer[msglen+1];
-                bzero(&msgbuffer, msglen+1);
-                read(PRP[i][0], msgbuffer,msglen);
-           //     printf("msgbuffer is %s\n", msgbuffer);
-                // output the msg to the socket back to home server.
-                write(listensocket,&incomingmessage, sizeof(int));
-                write(listensocket,&msglen, sizeof(int));
-                write(listensocket,&msgbuffer,msglen);
-                // read from server, wait for response.
-                read(listensocket, &dirsize,sizeof(int));
-                if(dirsize == 3){
-                printf("Server has contacted client to finish up remaining jobs\n");
-                return -1;
-                }
-
-                char dirbuffer[dirsize+1];
-                bzero(&dirbuffer, dirsize+1);
-                read(listensocket, dirbuffer, dirsize);
-                // write message to children
-                dir = strtok(dirbuffer, "\n");
-                dirsize =strlen(dir);
-                write(EDP[i][1], &dirsize, sizeof(int));
-                write(EDP[i][1], dir, dirsize);
-                }
-
-            }
-        }
-// reset the FDset
-for (int j= 0; j < ProcessTotal; j++){
-FD_SET(PRP[j][0],rfds);} 
-}
-else {
-puts("no new messages from children");
-for (int i= 0; i < ProcessTotal; i++){
-FD_SET(PRP[i][0],rfds);}}
-
-return 0;
-
-}
 
 
 

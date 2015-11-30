@@ -169,11 +169,17 @@ puts("new message from child");
                 // inital open the children.
                 else if (msglen == 1){
                 // tell server there is a child ready
+                puts("initial write to server that child is ready");
                 write(listensocket,&readystatus, sizeof(readystatus));
                 msglen = 0;
                 // read new message from server
+                puts("reading from socket");
                 read(listensocket, &dirsize,sizeof(int));
-
+                if(dirsize ==3){
+                printf("Server has contacted client to finish up remaining jobs\n");
+                return -1;   
+                }
+                puts("new message from server");
                 char dirbuffer[dirsize+1];
                 bzero(&dirbuffer, dirsize+1);
                 read(listensocket, dirbuffer, dirsize);

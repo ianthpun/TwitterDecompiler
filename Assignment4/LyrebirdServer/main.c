@@ -202,7 +202,7 @@ int msgtype = 0;
 // end of file. Send a message to all the clients requesting to finish their jobs
 puts("writing closing file to everyone");
 
-for (int i =0; i< clientnum; i++){
+for (int i =0; i<= clientnum; i++){
 	if(write(connectsocket[i], &jobsfinished, sizeof(int))<0)
 		perror("write");
 }
@@ -212,7 +212,7 @@ puts("here now");
 for(int i=0; i<clientnum; i++){
 	while(1){
 	int msgtype;
-	puts("checking client");
+	printf("checking client %i \n", i);
 	if(read(connectsocket[i], &msgtype, sizeof(int))>0){ 
 		switch(msgtype){
 	   //  msgtype is a status ready from child, send a status 1 for more output work.			

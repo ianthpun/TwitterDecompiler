@@ -265,7 +265,8 @@ getifaddrs (&ifap);
 // go through the ifap linklist and find the correct address.
 for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
 // address should be IPv4 with interface en0.
-    if ((!strcmp(ifa->ifa_name, "en0")) && (ifa->ifa_addr->sa_family==AF_INET)){
+// havent tested this yet!!!!!!!!!!!!!!!!!!!!
+    if ((strcmp(ifa->ifa_addr, "127.0.0.1")!=0) && (ifa->ifa_addr->sa_family==AF_INET)){
         sa = (struct sockaddr_in*) ifa->ifa_addr;
         addr = inet_ntoa(sa->sin_addr);
 		serveraddress->sin_addr.s_addr = inet_addr(addr);

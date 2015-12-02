@@ -42,7 +42,7 @@ It will do this by first taking in the algorithm in the first line of the config
 time_t ltime;
 
 void LyrebirdPipe(int EDPipe[], int PRPipe[]);
-void CreateChildProcess(int EncryptionDirectoryPipe[], int ProcessReadyPipe[], int ProcessArr[],fd_set* rfds, int i);
+void CreateChildProcess(int EncryptionDirectoryPipe[], int ProcessReadyPipe[], int *ProcessArr,fd_set* rfds, int i);
 int childprocessmsgcheck(fd_set *rfds, int PRP[][2],int EDP[][2], int listensocket, int ProcessTotal);
 void childCleanup(fd_set *rfds,int listensocket, int PRP[][2], int closedchildcheck, int ProcessTotal);
 
@@ -69,6 +69,7 @@ int ProcessTotal = CoreNumber-1;
 int EncryptionDirectoryPipe[ProcessTotal][2];
 int ProcessReadyPipe[ProcessTotal][2]; 
 int ProcessArr[ProcessTotal];
+int dirsize = 0;
 fd_set rfds;
 FD_ZERO(&rfds);
 
@@ -89,17 +90,20 @@ FD_SET(listensocket,&listenfd);
 // set server address to the user choices
 serveraddress.sin_addr.s_addr = inet_addr(argv[1]);
 serveraddress.sin_port = htons(atoi(argv[2]));
+serveraddress.sin_family = AF_INET;
 
-connect(listensocket, &serveraddress, sizeof(struct sockaddr_in));
+if(connect(listensocket, &serveraddress, sizeof(struct sockaddr_in))<0){
+    perror("connect");
+    exit(-1);
+}
 printf("[%s] lyrebird client: PID %i connected to server %s on port %i. \n", CurrTime(&ltime), getpid(), argv[1],atoi(argv[2]));
 // create children for processing
 for(int i = 0; i < ProcessTotal; i++){
     LyrebirdPipe(EncryptionDirectoryPipe[i], ProcessReadyPipe[i]);
-    CreateChildProcess(EncryptionDirectoryPipe[i], ProcessReadyPipe[i], ProcessArr[i], &rfds, i);
+    CreateChildProcess(EncryptionDirectoryPipe[i], ProcessReadyPipe[i], &ProcessArr[i], &rfds, i);
 }
 write(listensocket,&readystatus, sizeof(readystatus));
 
-int dirsize = 0;
 while(1){ 
     if(childprocessmsgcheck(&rfds,ProcessReadyPipe,EncryptionDirectoryPipe,listensocket,ProcessTotal)<0)
         break; 
@@ -140,7 +144,7 @@ ProcessCleanup(ProcessTotal, ProcessArr);
 close(listensocket);
 
 // parent can now terminate.
-printf("[%s] Lyrebird client: PID %i completed its tasks and is exiting succesfully.\n", CurrTime(&ltime), getpid());
+printf("[%s] Lyrebird client: PID %i completed its tasks and is exiting successfully.\n", CurrTime(&ltime), getpid());
 exit(0);
 
 
@@ -246,7 +250,7 @@ if(pipe(EDPipe)||pipe(PRPipe)){
 
 
 
-void CreateChildProcess(int EncryptionDirectoryPipe[], int ProcessReadyPipe[], int ProcessArr[], fd_set* rfds, int i){
+void CreateChildProcess(int EncryptionDirectoryPipe[], int ProcessReadyPipe[], int* ProcessArr, fd_set* rfds, int i){
 
 
 int ProcessCount = 0;
@@ -273,7 +277,7 @@ int ChildID = fork();
         // close reading end, we will be writing to the child processes
         close(EncryptionDirectoryPipe[0]);
         // add the child into the ProcessArr to keep track of processes created
-        ProcessArr = ChildID;
+        *ProcessArr = ChildID;
 }
 
         else if (ChildID == 0){         // child process

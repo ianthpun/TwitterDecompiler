@@ -33,18 +33,20 @@ It will do this by first taking in the algorithm in the first line of the config
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <ifaddrs.h>
+#include <errno.h>
 
 void SetServerAddress(struct sockaddr_in* serveraddress);
 void PrintSockAddrPort(int sockfd);
-void NewClientConnect(fd_set *listensockfd, fd_set *connectedclients, int listensocket, int connectsocket[], int clientIP[], int* clientnum, FILE* output);
-void NewClientMessageCheck(fd_set *connectedclients, int clientnum, int connectsocket[],int clientIP[], char* str, FILE* output);
-
+void NewClientConnect(fd_set *listensockfd, fd_set *connectedclients, int listensocket, int connectsocket[], char* clientIP[][50], int* clientnum, FILE* output);
+int NewClientMessageCheck(fd_set *connectedclients, int clientnum, int connectsocket[],char* clientIP[][50], char* str, FILE* output);
+void remainingwork(int connectsocket[], int clientnum, char* clientIP[][50], FILE* output);
 
 #define Want_Debug
 
 time_t ltime;
 int sockaddrlen = sizeof(struct sockaddr);
 struct sockaddr_in serveraddress, clientaddress;
+const int jobsfinished = 3;
 
 
 
@@ -59,9 +61,8 @@ fd_set listensockfd;
 fd_set connectedclients;
 FD_ZERO(&listensockfd);
 FD_ZERO(&connectedclients);
-char (*clientIP[500])[50]; // will make malloc later
+char *clientIP[500][50]; // will make malloc later
 int msgsize;
-const int jobsfinished = 3;
 
 // timeval is used for the SELECT function
 struct timeval tv;
@@ -105,147 +106,31 @@ PrintSockAddrPort(listensocket);
 
 while(fgets(str, 2050, input)){
 	while(1){
-	//NewClientConnect(&listensockfd, &connectedclients, listensocket, connectsocket, clientIP, &clientnum, output);
-	//NewClientMessageCheck(&connectedclients, clientnum, connectsocket,clientIP, str, output);
-	
-	// check if any New clients have showed up
-	if(select(FD_SETSIZE, &listensockfd, NULL,NULL,&tv)>0){
-		connectsocket[clientnum] = accept(listensocket, (struct sockaddr*)&clientaddress, &sockaddrlen);
-		printf("Successfully connected to Client %s \n", inet_ntoa(clientaddress.sin_addr));
-		fprintf(output, "[%s] Successfully connected to lyrebird client %s.\n", CurrTime(&ltime),inet_ntoa(clientaddress.sin_addr));
-		// put the client IP address to ClientIP array to recall it later
-		clientIP[clientnum] = inet_ntoa(clientaddress.sin_addr);
-		// put connectsocket into fdset for incoming client messages
-		FD_SET(connectsocket[clientnum], &connectedclients);
-		clientnum++;
-
-	}
-	else {
-	FD_SET(listensocket,&listensockfd);} // reset FDSet 
-
-
-
-
-int msgtype = 0;
-
-	// check if connected clients are free
-	if(select(FD_SETSIZE, &connectedclients, NULL,NULL,&tv)>0){
-	printf("client connected has a message \n");
-	// find out which client caused it 
-		for(int i =0; i<clientnum;i++){
-			if(FD_ISSET(connectsocket[i], &connectedclients)){
-				read(connectsocket[i], &msgtype,sizeof(int));
-				switch(msgtype){
-		   //  msgtype is a status ready from child, send a status 1 for more output work.			
-			      case 1:{ 
-			      	printf("Client from %s is ready. Send work. \n", clientIP[i]);
-
-			      	int strlength = strlen(str);
-					write(connectsocket[i], &strlength, sizeof(int));
-					printf("message being sent is %s\n", str);
-					write(connectsocket[i], str, strlen(str));
-					// everything below this could be some function we make! =)
-					char *inouttemp = strtok(str, " ");
-					inouttemp = strtok(inouttemp, "\n");
-	       		    char *input = inouttemp;
-					fprintf(output, "[%s] The lyrebird client %s has been given the task of decrypting %s.\n", CurrTime(&ltime),clientIP[i], input);
-					break;}
-
-			// msgtype is an incoming message, receieve msg and output to log		
-	      		  case 2:{
-	      		  	printf("Client has a message. Getting msg length \n");
-					read(connectsocket[i], &msgsize,sizeof(int));
-					char msgbuffer[msgsize+1];
-					bzero(&msgbuffer, msgsize+1);
-					printf("incoming message is %i long, reading message. \n",msgsize);
-					read(connectsocket[i], msgbuffer, msgsize);
-					printf("recieved message is :%s \n", msgbuffer);
-					fprintf(output,"[%s] The lyrebird client %s has %s\n", CurrTime(&ltime), clientIP[i],msgbuffer);
-					// after receving the message, push the new message to the client
-					int strlength = strlen(str);
-					write(connectsocket[i], &strlength, sizeof(int));
-					printf("message being sent is %s\n", str);
-					write(connectsocket[i], str, strlen(str));
-					// everything below this could be some function we make! =)
-					char *inouttemp = strtok(str, " ");
-					inouttemp = strtok(inouttemp, "\n");
-	       		    char *input = inouttemp;
-					fprintf(output, "[%s] The lyrebird client %s has been given the task of decrypting %s.\n", CurrTime(&ltime),clientIP[i], input);
-	      		  	break;}
-	      	//client possibily dissconnected	  	
-	      		  default:{
-	      		  	printf("Client has disconnected \n");
-	      		  	break;}
-	   		}
-	   		// end of if
-	   			break; // use this break to leave the for loop, need to also break out of while loop.
-
-		}
-	// end of for
-		}
-	//reset the SELECT for clients
-	for(int i = 0; i < clientnum; i++){
-		FD_SET(connectsocket[i], &connectedclients);}
-	// end of select
-	// break out of the while loop to get new file.
-	break;
-
-	}
-	else{//reset the SELECT for clients
-	for(int i = 0; i < clientnum; i++){
-		FD_SET(connectsocket[i], &connectedclients);}}
-
-
-		}	
+	NewClientConnect(&listensockfd, &connectedclients, listensocket, connectsocket, clientIP, &clientnum, output);
+	if (NewClientMessageCheck(&connectedclients, clientnum, connectsocket,clientIP, str, output)==1)
+		break;}	
 }
-
+// close the listening socket, you will not need anymore clients to be connected
+close(listensocket);
 // end of file. Send a message to all the clients requesting to finish their jobs
 puts("writing closing file to everyone");
 
-for (int i =0; i<= clientnum; i++){
+for (int i =0; i< clientnum; i++){
 	if(write(connectsocket[i], &jobsfinished, sizeof(int))<0)
 		perror("write");
 }
 
-puts("here now");
 
-for(int i=0; i<clientnum; i++){
-	while(1){
-	int msgtype;
-	printf("checking client %i \n", i);
-	if(read(connectsocket[i], &msgtype, sizeof(int))>0){ 
-		switch(msgtype){
-	   //  msgtype is a status ready from child, send a status 1 for more output work.			
-		      case 1:{ 
-		      	printf("Child from %s is ready. No work to be given. \n", clientIP[i]);
-				break;}
+remainingwork(connectsocket,clientnum, clientIP,output);
 
-		// msgtype is an incoming message, receieve msg and output to log		
-      		  case 2:{
-      	printf("Client has a message. Getting msg length \n");
-		read(connectsocket[i], &msgsize,sizeof(int));
-		char msgbuffer[msgsize+1];
-		bzero(&msgbuffer, msgsize+1);
-		printf("incoming message is %i long, reading message. \n",msgsize);
-		read(connectsocket[i], msgbuffer, msgsize);
-		printf("recieved message is :%s \n", msgbuffer);
-		fprintf(output,"[%s] The lyrebird client %s has %s\n", CurrTime(&ltime), clientIP[i],msgbuffer);
-      		  	break;}
-      	//client possibily dissconnected	  	
-      		  default:{
-      		  	printf("Client has disconnected \n");
-      		  	break;}
-   		}
-   	}
-   	else break;
-}
-}
+
 
 
 
 printf("[%s] lyrebird server: PID %i completed its tasks and is exiting successfully.\n", CurrTime(&ltime), getpid());
 
-
+close(input);
+close(output);
 
 exit(0);
 
@@ -264,12 +149,16 @@ char *addr;
 getifaddrs (&ifap);
 // go through the ifap linklist and find the correct address.
 for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
-// address should be IPv4 with interface en0.
-// havent tested this yet!!!!!!!!!!!!!!!!!!!!
-    if ((strcmp(ifa->ifa_addr, "127.0.0.1")!=0) && (ifa->ifa_addr->sa_family==AF_INET)){
         sa = (struct sockaddr_in*) ifa->ifa_addr;
         addr = inet_ntoa(sa->sin_addr);
+// address should be IPv4 
+    if ((strcmp(addr, "127.0.0.1")==0) && (ifa->ifa_addr->sa_family==AF_INET)){
+    	ifa = ifa->ifa_next;
+    	sa = (struct sockaddr_in*) ifa->ifa_addr;
+        addr = inet_ntoa(sa->sin_addr);
 		serveraddress->sin_addr.s_addr = inet_addr(addr);
+		serveraddress->sin_family = AF_INET;
+		break;
     }
 }
 freeifaddrs(ifap);
@@ -299,7 +188,7 @@ void NewClientCheck(int listensocket, int listensockfd, int clientnum, int conne
 
 
 
-void NewClientConnect(fd_set *listensockfd, fd_set *connectedclients, int listensocket, int connectsocket[], int clientIP[], int* clientnum, FILE* output){
+void NewClientConnect(fd_set *listensockfd, fd_set *connectedclients, int listensocket, int connectsocket[], char* clientIP[][50], int* clientnum, FILE* output){
 struct timeval tv;
 tv.tv_sec = 1;
 tv.tv_usec = 0; 
@@ -309,14 +198,16 @@ tv.tv_usec = 0;
 		printf("Successfully connected to Client %s \n", inet_ntoa(clientaddress.sin_addr));
 		fprintf(output, "[%s] Successfully connected to lyrebird client %s.\n", CurrTime(&ltime),inet_ntoa(clientaddress.sin_addr));
 		// put the client IP address to ClientIP array to recall it later
-		clientIP[*clientnum] = inet_ntoa(clientaddress.sin_addr);
+		strcpy (clientIP[*clientnum],inet_ntoa(clientaddress.sin_addr));
+//		printf("clientIP added is %s \n", clientIP[*clientnum]);
+//		printf("previous clientIP added is %s \n", clientIP[clientnum-1]);
 		// put connectsocket into fdset for incoming client messages
 		FD_SET(connectsocket[*clientnum], connectedclients);
 		(*clientnum)++;
 
 	}
 	else {
-	FD_SET(listensocket,listensockfd);} // reset FDSet 
+	FD_SET(listensocket,listensockfd);} 
 
 
 }
@@ -325,7 +216,7 @@ tv.tv_usec = 0;
 
 
 
-void NewClientMessageCheck(fd_set *connectedclients, int clientnum, int connectsocket[],int clientIP[], char* str, FILE* output){
+int NewClientMessageCheck(fd_set *connectedclients, int clientnum, int connectsocket[], char* clientIP[][50], char* str, FILE* output){
 
 struct timeval tv;
 tv.tv_sec = 1;
@@ -335,9 +226,9 @@ int msgsize = 0;
 
 
 // check if connected clients are free
-if(select(FD_SETSIZE, connectedclients, NULL,NULL,&tv)>0){
+int ret = select(FD_SETSIZE, connectedclients, NULL,NULL,&tv);
+if(ret>0){
 printf("client connected has a message \n");
-printf("clientnum is %i\n", clientnum);
 // find out which client caused it 
 	for(int i =0; i<clientnum;i++){
 		if(FD_ISSET(connectsocket[i], connectedclients)){
@@ -385,6 +276,8 @@ printf("clientnum is %i\n", clientnum);
       		  	break;}
    		}
    		// end of if
+   			break; // use this break to leave the for loop, need to also break out of while loop.
+
 	}
 // end of for
 	}
@@ -392,13 +285,70 @@ printf("clientnum is %i\n", clientnum);
 for(int i = 0; i < clientnum; i++){
 	FD_SET(connectsocket[i], connectedclients);}
 // end of select
+// break out of the while loop to get new file.
+return 1;
+
 }
-else{
-//reset the SELECT for clients
+else if (ret <0){
+
+	if (strcmp(errno,"EBADF")==0){
+	// some one has dissconnected.
+
+	for (int i =0; i< clientnum; i++){
+	if(write(connectsocket[i], &jobsfinished, sizeof(int))<0)
+		// clientIP[i] has disconnected
+		printf("[%s] lyrebird client %s has disconnected unexpectedly \n");
+		}
+	// get remaining messages.
+
+	}
+
+}
+
+
+else{//reset the SELECT for clients
 for(int i = 0; i < clientnum; i++){
-	FD_SET(connectsocket[i], connectedclients);}
+	FD_SET(connectsocket[i], connectedclients);}}
+
+return 0;
+
 }
 
+void remainingwork(int connectsocket[], int clientnum, char* clientIP[][50], FILE* output){
+int msgsize;
 
+	for(int i=0; i<clientnum; i++){
+	while(1){
+	int msgtype;
+	printf("checking client %i \n", i);
+	if(read(connectsocket[i], &msgtype, sizeof(int))>0){ 
+		switch(msgtype){
+	   //  msgtype is a status ready from child, send a status 1 for more output work.			
+		      case 1:{ 
+		      	printf("Child from %s is ready. No work to be given. \n", clientIP[i]);
+				break;}
+
+		// msgtype is an incoming message, receieve msg and output to log		
+      		  case 2:{
+      	printf("Client has a message. Getting msg length \n");
+		read(connectsocket[i], &msgsize,sizeof(int));
+		if(msgsize > 1){
+		char msgbuffer[msgsize+1];
+		bzero(&msgbuffer, msgsize+1);
+		printf("incoming message is %i long, reading message. \n",msgsize);
+		read(connectsocket[i], msgbuffer, msgsize);
+		printf("[%s] The lyrebird client %s has %s\n", CurrTime(&ltime), clientIP[i],msgbuffer);
+		fprintf(output,"[%s] The lyrebird client %s has %s\n", CurrTime(&ltime), clientIP[i],msgbuffer);
+      		  	break;}
+      		  	else break; // msg is not a real messsage
+      		  }
+      	//client possibily dissconnected	  	
+      		  default:{
+      		  	break;}
+   		}
+   	}
+   	else break;
+}
 }
 
+}

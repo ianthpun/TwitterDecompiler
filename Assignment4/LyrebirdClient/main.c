@@ -45,19 +45,21 @@ void LyrebirdPipe(int EDPipe[], int PRPipe[]);
 void CreateChildProcess(int EncryptionDirectoryPipe[], int ProcessReadyPipe[], int *ProcessArr,fd_set* rfds, int i);
 int childprocessmsgcheck(fd_set *rfds, int PRP[][2],int EDP[][2], int listensocket, int ProcessTotal);
 void childCleanup(fd_set *rfds,int listensocket, int PRP[][2], int closedchildcheck, int ProcessTotal);
-
+void serverconnect(int listensocket);
+void CloseEDP(int EDP[][2], int ProcessTotal);
+void getremainingmsgs(int listensocket, int PRP[][2], int ProcessTotal);
 
 const int readystatus = 1;
 const int incomingmessage = 2;
 const int jobsfinished = 3;
 char fulldirectory[2050];
+struct sockaddr_in serveraddress;
+int sockaddrlen = sizeof(struct sockaddr);
 
 
 
 int main (int argc, char *argv[]) {
 int listensocket;
-int sockaddrlen = sizeof(struct sockaddr);
-struct sockaddr_in serveraddress;
 fd_set listenfd;
 FD_ZERO(&listenfd);
 int jobcount = 0;
@@ -92,51 +94,29 @@ serveraddress.sin_addr.s_addr = inet_addr(argv[1]);
 serveraddress.sin_port = htons(atoi(argv[2]));
 serveraddress.sin_family = AF_INET;
 
-if(connect(listensocket, &serveraddress, sizeof(struct sockaddr_in))<0){
-    perror("connect");
-    exit(-1);
-}
+// connect to server
+serverconnect(listensocket);
+
 printf("[%s] lyrebird client: PID %i connected to server %s on port %i. \n", CurrTime(&ltime), getpid(), argv[1],atoi(argv[2]));
+
 // create children for processing
 for(int i = 0; i < ProcessTotal; i++){
     LyrebirdPipe(EncryptionDirectoryPipe[i], ProcessReadyPipe[i]);
     CreateChildProcess(EncryptionDirectoryPipe[i], ProcessReadyPipe[i], &ProcessArr[i], &rfds, i);
 }
+
 write(listensocket,&readystatus, sizeof(readystatus));
+
 
 while(1){ 
     if(childprocessmsgcheck(&rfds,ProcessReadyPipe,EncryptionDirectoryPipe,listensocket,ProcessTotal)<0)
         break; 
 }
 
-for(int i =0; i< ProcessTotal; i++){
-    close(EncryptionDirectoryPipe[i][1]);
-}
+CloseEDP(EncryptionDirectoryPipe, ProcessTotal);
 
-fd_set s;
-FD_ZERO(&s);
-for (int i=0; i< ProcessTotal; i++){
-    while(1){
-    int msglen;
-    FD_SET(ProcessReadyPipe[i][0],&s); 
-    if(select(FD_SETSIZE, &s, NULL,NULL,&tv)>0){
-        if(read(ProcessReadyPipe[i][0],&msglen,sizeof(int))>0){
-        // get the last messages from the children
-            puts("new message from child");
-            char msgbuffer[msglen+1];
-            bzero(&msgbuffer, msglen+1);
-            // read the message
-            read(ProcessReadyPipe[i][0], msgbuffer,msglen); 
-            // output the msg to the socket back to home server.
-            write(listensocket,&incomingmessage, sizeof(int));
-            write(listensocket,&msglen, sizeof(int));
-            write(listensocket,&msgbuffer,msglen);}
-        else break;
-        }
+getremainingmsgs(listensocket,ProcessReadyPipe, ProcessTotal);
 
-    }
-FD_ZERO(&s);
-}
 
 // run ProcessCleanup to make sure that all chidlren closed correctly.
 ProcessCleanup(ProcessTotal, ProcessArr);
@@ -341,9 +321,60 @@ int ChildID = fork();
 }
 
 
+void serverconnect(int listensocket){
+
+if(connect(listensocket, &serveraddress, sizeof(struct sockaddr_in))<0){
+    perror("connect");
+    exit(-1);
+}
+
+}
+
+
+void CloseEDP(int EDP[][2], int ProcessTotal){
+
+
+for(int i =0; i< ProcessTotal; i++){
+    close(EDP[i][1]);
+}
+
+}
 
 
 
+void getremainingmsgs(int listensocket, int PRP[][2], int ProcessTotal){
 
+struct timeval tv;
+tv.tv_sec = 1;
+tv.tv_usec = 0;
+
+fd_set s;
+FD_ZERO(&s);
+for (int i=0; i< ProcessTotal; i++){
+    while(1){
+    int msglen;
+    FD_SET(PRP[i][0],&s); 
+    if(select(FD_SETSIZE, &s, NULL,NULL,&tv)>0){
+        if(read(PRP[i][0],&msglen,sizeof(int))>0){
+        // get the last messages from the children
+            puts("new message from child");
+            char msgbuffer[msglen+1];
+            bzero(&msgbuffer, msglen+1);
+            // read the message
+            read(PRP[i][0], msgbuffer,msglen); 
+            // output the msg to the socket back to home server.
+            write(listensocket,&incomingmessage, sizeof(int));
+            write(listensocket,&msglen, sizeof(int));
+            write(listensocket,&msgbuffer,msglen);}
+        else break;
+        }
+
+    }
+FD_ZERO(&s);
+}
+
+
+
+}
 
 

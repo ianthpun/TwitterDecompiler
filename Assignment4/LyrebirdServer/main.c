@@ -40,6 +40,8 @@ void PrintSockAddrPort(int sockfd);
 void NewClientConnect(fd_set *listensockfd, fd_set *connectedclients, int listensocket, int connectsocket[], char* clientIP[][50], int* clientnum, FILE* output);
 int NewClientMessageCheck(fd_set *connectedclients, int clientnum, int connectsocket[],char* clientIP[][50], char* str, FILE* output);
 void remainingwork(int connectsocket[], int clientnum, char* clientIP[][50], FILE* output);
+void bindsocket(int listensocket);
+void listensock(int listensocket);
 
 #define Want_Debug
 
@@ -95,11 +97,9 @@ SetServerAddress(&serveraddress);
 listensocket = socket(AF_INET, SOCK_STREAM, 0);
 FD_SET(listensocket,&listensockfd);
 
-if(bind(listensocket, (struct sockaddr *) &serveraddress, sizeof(struct sockaddr_in))<0)
-	perror("bind");
+bindsocket(listensocket);
+listensock(listensocket);
 
-if(listen(listensocket, 5)<0)
-	perror("listen");
 
 
 PrintSockAddrPort(listensocket);
@@ -151,6 +151,7 @@ getifaddrs (&ifap);
 for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
         sa = (struct sockaddr_in*) ifa->ifa_addr;
         addr = inet_ntoa(sa->sin_addr);
+        puts(addr);
 // address should be IPv4 
     if ((strcmp(addr, "127.0.0.1")==0) && (ifa->ifa_addr->sa_family==AF_INET)){
     	ifa = ifa->ifa_next;
@@ -158,6 +159,7 @@ for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
         addr = inet_ntoa(sa->sin_addr);
 		serveraddress->sin_addr.s_addr = inet_addr(addr);
 		serveraddress->sin_family = AF_INET;
+		puts(addr);
 		break;
     }
 }
@@ -352,3 +354,21 @@ int msgsize;
 }
 
 }
+
+
+
+void bindsocket(int listensocket){
+if(bind(listensocket, (struct sockaddr *) &serveraddress, sizeof(struct sockaddr_in))<0)
+	perror("bind");
+}
+
+void listensock(int listensocket){
+if(listen(listensocket, 5)<0)
+	perror("listen");
+}
+
+
+
+
+
+
